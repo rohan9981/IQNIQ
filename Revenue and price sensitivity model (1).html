@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Revenue and price sensitivity model</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#f3f5f9;--surface:#ffffff;--text:#16192b;--muted:#5d6580;--line:#dde1ec;
+  --accent:#3b3fd8;--accent-soft:#e6e7fb;--good:#14804a;--bad:#c23a3a;--warn:#b7791f;
+  --good-rgb:20,128,74;--bad-rgb:194,58,58;
+  color-scheme:light;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--bg:#0f1220;--surface:#181c31;--text:#e9ebf6;--muted:#9aa1be;--line:#2a2f4b;--accent:#8c90ff;--accent-soft:#25294d;--good:#4cc38a;--bad:#ff7a7a;--warn:#e5b04f;--good-rgb:76,195,138;--bad-rgb:255,122,122;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#0f1220;--surface:#181c31;--text:#e9ebf6;--muted:#9aa1be;--line:#2a2f4b;--accent:#8c90ff;--accent-soft:#25294d;--good:#4cc38a;--bad:#ff7a7a;--warn:#e5b04f;--good-rgb:76,195,138;--bad-rgb:255,122,122;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 15px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,h3,.big{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;margin:0}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:20px clamp(16px,3vw,32px);border-bottom:1px solid var(--line);background:var(--surface)}
+header h1{font-size:22px;font-weight:700}
+header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 12px}
+button:hover{border-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.wrap{display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px;padding:24px clamp(16px,3vw,32px);max-width:1500px;margin:0 auto}
+@media (max-width:900px){.wrap{grid-template-columns:1fr}}
+aside{display:flex;flex-direction:column;gap:16px;align-self:start}
+@media (min-width:901px){aside{position:sticky;top:16px}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
+.panel h2{font-size:16px;margin-bottom:12px}
+.field{display:grid;grid-template-columns:1fr 112px;gap:8px;align-items:center;margin-bottom:10px;font-size:14px}
+.field label{color:var(--muted)}
+input[type=number]{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;text-align:right}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi span{display:block;color:var(--muted);font-size:13px}
+.kpi .big{font-size:26px;font-weight:700;margin-top:2px}
+.kpi small{color:var(--muted)}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+section{margin-bottom:28px}
+section>h2{font-size:19px;margin-bottom:4px}
+section>p{margin:0 0 12px;color:var(--muted);max-width:70ch}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:520px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font-weight:600;background:var(--bg);color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td.cell{font-weight:500}
+td.base{outline:2px solid var(--accent);outline-offset:-2px}
+.tog{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.tog span{color:var(--muted);font-size:13px}
+.legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.note{font-size:13px;color:var(--muted);margin-top:8px}
+.inst{display:grid;grid-template-columns:1fr 84px 70px;gap:6px;margin-bottom:8px;align-items:center;font-size:13px}
+.inst input[type=text]{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.hd{color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:4px;padding:0 clamp(16px,3vw,32px);background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:12px 14px;color:var(--muted);white-space:nowrap}
+.tabs button.act{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+.stack{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin-bottom:16px}
+.stack div{height:100%}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
+td.why{white-space:normal;text-align:left;min-width:260px;color:var(--muted)}
+tr.tot td{font-weight:600;background:var(--bg)}
+.warn{color:var(--warn);font-size:13px;margin-top:8px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useMemo,useEffect}=React;const h=React.createElement;
+const KEY="revmodel:v1";
+const DEFAULTS={
+  inst:[{n:"Institute A",s:2000},{n:"Institute B",s:1800},{n:"Institute C",s:1200}],
+  sp:1500,fp:1000,ratio:20,adopt:100,disc:0,cost:12000000,costInf:6,priceInf:5,fixedGrow:10,
+  newY2:5,newY3:7,churn:5,studG:5,
+  split:[38,14,10,12,14,5,7],
+  fixedPct:[90,60,30,20,50,80,80],
+};
+const inr=n=>{const a=Math.abs(n),s=n<0?"-":"";
+  if(a>=1e7)return s+"₹"+(a/1e7).toFixed(2)+" Cr";
+  if(a>=1e5)return s+"₹"+(a/1e5).toFixed(1)+" L";
+  return s+"₹"+Math.round(a).toLocaleString("en-IN")};
+const num=n=>Math.round(n).toLocaleString("en-IN");
+
+const CATS=[
+  {n:"Engineering and AI team",d:"Product, backend, front end and ML engineers building the four modules and AI insights",c:"#3b3fd8"},
+  {n:"Psychologists and content",d:"Advisor retainers, assessment design and validation, licensing of established scales",c:"#7a5bd6"},
+  {n:"Cloud and security",d:"Hosting, data protection, security audits and backups",c:"#0f9aa8"},
+  {n:"Onboarding and support",d:"Implementation, training and helpdesk for each institute",c:"#e08a1e"},
+  {n:"Sales and marketing",d:"Pilot outreach, travel, events and demos for deans and directors",c:"#d1495b"},
+  {n:"Legal and compliance",d:"DPDP Act consent framework, contracts and privacy reviews",c:"#5a9a3c"},
+  {n:"Admin and contingency",d:"Accounting, tools, office and a buffer for overruns",c:"#8a8fa8"}
+];
+// core revenue formula
+function annual(students,p,x){
+  const paying=students*x.adopt/100;
+  const faculty=students/x.ratio;
+  const sRev=paying*p*(1-x.disc/100);
+  const fRev=faculty*x.fp*(1-x.disc/100);
+  return{paying,faculty,sRev,fRev,rev:sRev+fRev};
+}
+function load(){try{const v=localStorage.getItem(KEY);if(v)return Object.assign({},DEFAULTS,JSON.parse(v))}catch(e){}return DEFAULTS}
+
+function Num({label,k,x,set,step}){
+  return h("div",{className:"field"},h("label",{htmlFor:k},label),
+    h("input",{id:k,type:"number",value:x[k],step:step||1,onChange:e=>set({...x,[k]:parseFloat(e.target.value)||0})}));
+}
+function heat(v,max){
+  const t=Math.min(1,Math.abs(v)/(max||1))*0.55+0.08;
+  return v>=0?`rgba(var(--good-rgb),${t})`:`rgba(var(--bad-rgb),${t})`;
+}
+function Grid({title,desc,rowLabel,rows,cols,colLabel,fn,baseR,baseC,mode,fmtRow,fmtCol}){
+  const vals=rows.map(r=>cols.map(c=>fn(r,c)));
+  const max=Math.max(...vals.flat().map(Math.abs));
+  return h("section",null,h("h2",null,title),h("p",null,desc),
+    h("div",{className:"scroll"},h("table",null,
+      h("thead",null,h("tr",null,h("th",null,rowLabel+" ↓  /  "+colLabel+" →"),cols.map((c,i)=>h("th",{key:i},fmtCol(c))))),
+      h("tbody",null,rows.map((r,i)=>h("tr",{key:i},h("td",null,fmtRow(r)),
+        vals[i].map((v,j)=>h("td",{key:j,className:"cell"+(r===baseR&&cols[j]===baseC?" base":""),style:{background:mode==="profit"?heat(v,max):undefined}},inr(v))))))
+    )));
+}
+
+// multi-year projection: price escalation on revenue, inflation on cost, fixed vs variable split
+function project(x,total,N){
+  const avg=total/Math.max(1,x.inst.length);
+  const sum=x.split.reduce((a,b)=>a+b,0)||1;
+  const fb=CATS.reduce((a,_,i)=>a+x.cost*x.split[i]/sum*x.fixedPct[i]/100,0);
+  const vb=x.cost-fb;
+  let n=x.inst.length;const out=[];
+  for(let y=1;y<=N;y++){
+    if(y>=2)n=n*(1-x.churn/100)+(y===2?x.newY2:x.newY3);
+    const s=n*avg*Math.pow(1+x.studG/100,y-1);
+    const pf=Math.pow(1+x.priceInf/100,y-1),cf=Math.pow(1+x.costInf/100,y-1);
+    const r=annual(s,x.sp*pf,{...x,fp:x.fp*pf});
+    const fixed=fb*cf*Math.pow(1+x.fixedGrow/100,y-1);
+    const variable=vb*(total?s/total:0)*cf;
+    const cost=fixed+variable,p=r.rev-cost;
+    out.push({y,n,s,price:x.sp*pf,rev:r.rev,fixed,variable,cost,p,margin:r.rev?p/r.rev*100:0,cm:r.rev?(r.rev-variable)/r.rev*100:0});
+  }
+  return out;
+}
+function InflationView({x,total}){
+  const N=5,rows=project(x,total,N);
+  const cum=rows.reduce((a,r)=>a+r.p,0);
+  const be=rows.find(r=>r.p>=0);
+  const last=rows[N-1];
+  const line=(label,f,cls)=>h("tr",null,h("td",null,label),rows.map(r=>h("td",{key:r.y,className:cls?cls(r):""},f(r))));
+  const cis=[-4,-2,0,2,4].map(d=>x.costInf+d).filter(v=>v>=0);
+  const pis=[-5,-2.5,0,2.5,5].map(d=>x.priceInf+d).filter(v=>v>=0);
+  const m5=(ci,pi)=>project({...x,costInf:ci,priceInf:pi},total,N)[N-1].margin;
+  const grid=cis.map(c=>pis.map(p=>m5(c,p)));
+  const mx=Math.max(...grid.flat().map(Math.abs));
+  const pc=v=>v.toFixed(1)+"%";
+  return h("main",null,
+    h("div",{className:"kpis"},
+      h("div",{className:"kpi"},h("span",null,"Year 5 revenue"),h("div",{className:"big"},inr(last.rev)),h("small",null,"Price per student "+inr(last.price))),
+      h("div",{className:"kpi"},h("span",null,"Year 5 profit margin"),h("div",{className:"big "+(last.margin>=0?"pos":"neg")},pc(last.margin)),h("small",null,"Year 1: "+pc(rows[0].margin))),
+      h("div",{className:"kpi"},h("span",null,"First profitable year"),h("div",{className:"big"},be?"Year "+be.y:"Beyond Year "+N),h("small",null,"Annual profit at or above zero")),
+      h("div",{className:"kpi"},h("span",null,"Cumulative profit, "+N+" years"),h("div",{className:"big "+(cum>=0?"pos":"neg")},inr(cum)),h("small",null,"Nominal rupees"))),
+    h("section",null,h("h2",null,"Five-year view with inflation"),
+      h("p",null,"Prices rise by "+x.priceInf+"% a year and costs by "+x.costInf+"% a year. Fixed costs also step up by "+x.fixedGrow+"% a year for hiring. Variable costs scale with student numbers. Change these in the Costs and growth panel."),
+      h("div",{className:"scroll"},h("table",null,
+        h("thead",null,h("tr",null,h("th",null,""),rows.map(r=>h("th",{key:r.y},"Year "+r.y)))),
+        h("tbody",null,
+          line("Institutes",r=>r.n.toFixed(1)),
+          line("Students",r=>num(r.s)),
+          line("Price per student",r=>inr(r.price)),
+          line("Revenue",r=>inr(r.rev)),
+          line("Fixed cost",r=>inr(r.fixed)),
+          line("Variable cost",r=>inr(r.variable)),
+          line("Total cost",r=>inr(r.cost)),
+          line("Profit or gap",r=>inr(r.p),r=>r.p>=0?"pos":"neg"),
+          line("Contribution margin",r=>pc(r.cm)),
+          line("Profit margin",r=>pc(r.margin),r=>r.margin>=0?"pos":"neg"))))),
+    h("section",null,h("h2",null,"Year 5 profit margin: cost inflation vs price escalation"),
+      h("p",null,"If costs rise faster than the prices you can charge, margins shrink. Rows are cost inflation, columns are price escalation. The outlined cell is your current setting."),
+      h("div",{className:"scroll"},h("table",null,
+        h("thead",null,h("tr",null,h("th",null,"Cost inflation ↓  /  Price escalation →"),pis.map((p,i)=>h("th",{key:i},p+"%")))),
+        h("tbody",null,cis.map((c,i)=>h("tr",{key:i},h("td",null,c+"%"),
+          grid[i].map((v,j)=>h("td",{key:j,className:"cell"+(c===x.costInf&&pis[j]===x.priceInf?" base":""),style:{background:heat(v,mx)}},pc(v)))))))),
+      h("p",{className:"note"},"Price escalation only holds if your contracts allow it, so consider an annual escalation clause in institute agreements. Contribution margin is revenue minus variable cost, before fixed costs.")));
+}
+function CostView({x,set,total,base}){
+  const sum=x.split.reduce((a,b)=>a+b,0);
+  const amt=i=>x.cost*x.split[i]/100;
+  const setPct=(i,v)=>set({...x,split:x.split.map((p,j)=>j===i?v:p)});
+  const ratio=base.rev?x.cost/base.rev*100:0;
+  const setFixed=(i,v)=>set({...x,fixedPct:x.fixedPct.map((p,j)=>j===i?v:p)});
+  const fx=CATS.reduce((a,_,i)=>a+amt(i)*x.fixedPct[i]/100,0),vr=x.cost*sum/100-fx;
+  return h("main",null,
+    h("div",{className:"kpis"},
+      h("div",{className:"kpi"},h("span",null,"Total annual cost"),h("div",{className:"big"},inr(x.cost)),h("small",null,"Set in the Costs and growth panel")),
+      h("div",{className:"kpi"},h("span",null,"Monthly burn"),h("div",{className:"big"},inr(x.cost/12)),h("small",null,"Average over 12 months")),
+      h("div",{className:"kpi"},h("span",null,"Cost per student"),h("div",{className:"big"},inr(total?x.cost/total:0)),h("small",null,"Across "+num(total)+" students")),
+      h("div",{className:"kpi"},h("span",null,"Cost as share of revenue"),h("div",{className:"big "+(ratio<=100?"pos":"neg")},ratio.toFixed(0)+"%"),h("small",null,"Revenue "+inr(base.rev)))),
+    h("section",null,h("h2",null,"Where the money goes"),
+      h("p",null,"Edit the share of each line. Amounts update from the total annual cost, so changing that figure rescales every line."),
+      h("div",{className:"stack",role:"img","aria-label":"Cost split by category"},
+        CATS.map((c,i)=>h("div",{key:i,title:c.n+": "+x.split[i]+"%",style:{width:(sum?x.split[i]/sum*100:0)+"%",background:c.c}}))),
+      h("div",{className:"scroll"},h("table",{style:{minWidth:1120}},
+        h("thead",null,h("tr",null,h("th",null,"Category"),h("th",null,"Share (%)"),h("th",null,"Annual"),h("th",null,"Monthly"),h("th",null,"Per student"),h("th",null,"Fixed (%)"),h("th",null,"Fixed"),h("th",null,"Variable"),h("th",{style:{textAlign:"left"}},"What it covers"))),
+        h("tbody",null,
+          CATS.map((c,i)=>h("tr",{key:i},
+            h("td",null,h("span",{className:"sw",style:{background:c.c}}),c.n),
+            h("td",null,h("input",{type:"number","aria-label":c.n+" share",value:x.split[i],step:1,style:{width:72},onChange:e=>setPct(i,parseFloat(e.target.value)||0)})),
+            h("td",null,inr(amt(i))),h("td",null,inr(amt(i)/12)),h("td",null,inr(total?amt(i)/total:0)),
+            h("td",null,h("input",{type:"number","aria-label":c.n+" fixed share",value:x.fixedPct[i],step:5,style:{width:72},onChange:e=>setFixed(i,Math.min(100,Math.max(0,parseFloat(e.target.value)||0)))})),h("td",null,inr(amt(i)*x.fixedPct[i]/100)),h("td",null,inr(amt(i)*(100-x.fixedPct[i])/100)),h("td",{className:"why"},c.d))),
+          h("tr",{className:"tot"},h("td",null,"Total"),h("td",null,sum.toFixed(0)+"%"),h("td",null,inr(x.cost*sum/100)),h("td",null,inr(x.cost*sum/100/12)),h("td",null,inr(total?x.cost*sum/100/total:0)),h("td",null,x.cost*sum>0?(fx/(x.cost*sum/100)*100).toFixed(0)+"%":"0%"),h("td",null,inr(fx)),h("td",null,inr(vr)),h("td",{className:"why"},""))))),
+      sum!==100&&h("p",{className:"warn"},"Shares add up to "+sum.toFixed(1)+"%. Adjust them so they total 100%."),
+      h("div",{className:"btns",style:{marginTop:12}},h("button",{onClick:()=>set({...x,split:DEFAULTS.split})},"Restore default split")),
+      h("p",{className:"note"},"Fixed costs stay the same as students grow, while variable costs scale with student numbers; set the fixed share of each line. The default split is an illustrative starting point. Replace it with salary plans, vendor quotes and advisor fees before sharing with investors.")));
+}
+function App(){
+  const [x,set]=useState(load);
+  const [mode,setMode]=useState("revenue");
+  const [tab,setTab]=useState("rev");
+  const [theme,setTheme]=useState("");
+  useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(x))}catch(e){}},[x]);
+  useEffect(()=>{if(theme)document.documentElement.setAttribute("data-theme",theme);else document.documentElement.removeAttribute("data-theme")},[theme]);
+
+  const total=x.inst.reduce((a,i)=>a+i.s,0);
+  const base=annual(total,x.sp,x);
+  const profit=base.rev-x.cost;
+  const perStudent=x.sp*x.adopt/100*(1-x.disc/100)+x.fp/x.ratio*(1-x.disc/100);
+  const bePoints=perStudent>0?x.cost/perStudent:Infinity;
+
+  const prices=useMemo(()=>{const o=[];for(let p=x.sp-600;p<=x.sp+600;p+=300)if(p>0)o.push(p);return o},[x.sp]);
+  const stud=useMemo(()=>[0.6,0.8,1,1.25,1.5,2].map(m=>Math.round(total*m)),[total]);
+  const adopts=[40,60,80,100];
+  const val=(rev)=>mode==="profit"?rev-x.cost:rev;
+
+  // 3-year projection
+  const years=useMemo(()=>project(x,total,3),[x,total]);
+
+  const setInst=(i,f,v)=>set({...x,inst:x.inst.map((o,j)=>j===i?{...o,[f]:v}:o)});
+
+  return h("div",null,
+    h("header",null,
+      h("div",null,h("h1",null,"Revenue and price sensitivity model"),h("p",null,"Student and faculty licences across partner institutes. Inputs save in this browser.")),
+      h("div",{className:"btns"},
+        h("button",{onClick:()=>setTheme(theme==="dark"?"light":"dark")},"Toggle theme"),
+        h("button",{onClick:()=>set(DEFAULTS)},"Reset inputs"))),
+    h("nav",{className:"tabs",role:"tablist"},
+      h("button",{role:"tab","aria-selected":tab==="rev",className:tab==="rev"?"act":"",onClick:()=>setTab("rev")},"Revenue model"),
+      h("button",{role:"tab","aria-selected":tab==="cost",className:tab==="cost"?"act":"",onClick:()=>setTab("cost")},"Cost breakdown"),
+      h("button",{role:"tab","aria-selected":tab==="inf",className:tab==="inf"?"act":"",onClick:()=>setTab("inf")},"Inflation and margins")),
+    h("div",{className:"wrap"},
+      h("aside",null,
+        h("div",{className:"panel"},h("h2",null,"Institutes"),
+          h("div",{className:"inst hd"},h("span",null,"Name"),h("span",null,"Students"),h("span",null,"Faculty")),
+          x.inst.map((o,i)=>h("div",{className:"inst",key:i},
+            h("input",{type:"text","aria-label":"Institute name",value:o.n,onChange:e=>setInst(i,"n",e.target.value)}),
+            h("input",{type:"number","aria-label":"Students",value:o.s,onChange:e=>setInst(i,"s",parseInt(e.target.value)||0),style:{textAlign:"right"}}),
+            h("span",null,num(o.s/x.ratio)))),
+          h("div",{style:{display:"flex",gap:8,marginTop:6}},
+            h("button",{onClick:()=>set({...x,inst:[...x.inst,{n:"Institute "+(x.inst.length+1),s:1000}]})},"Add institute"),
+            x.inst.length>1&&h("button",{onClick:()=>set({...x,inst:x.inst.slice(0,-1)})},"Remove last"))),
+        h("div",{className:"panel"},h("h2",null,"Pricing"),
+          h(Num,{label:"Per student / year (₹)",k:"sp",x,set,step:100}),
+          h(Num,{label:"Per faculty / year (₹)",k:"fp",x,set,step:100}),
+          h(Num,{label:"Students per faculty",k:"ratio",x,set}),
+          h(Num,{label:"Student adoption (%)",k:"adopt",x,set}),
+          h(Num,{label:"Pilot discount (%)",k:"disc",x,set})),
+        h("div",{className:"panel"},h("h2",null,"Costs and growth"),
+          h(Num,{label:"Annual cost, Year 1 (₹)",k:"cost",x,set,step:100000}),
+          h(Num,{label:"Cost inflation / year (%)",k:"costInf",x,set,step:0.5}),
+          h(Num,{label:"Fixed cost step-up / year (%)",k:"fixedGrow",x,set,step:0.5}),
+          h(Num,{label:"Price escalation / year (%)",k:"priceInf",x,set,step:0.5}),
+          h(Num,{label:"New institutes, Year 2",k:"newY2",x,set}),
+          h(Num,{label:"New institutes, Year 3",k:"newY3",x,set}),
+          h(Num,{label:"Institute churn (%)",k:"churn",x,set}),
+          h(Num,{label:"Student growth / year (%)",k:"studG",x,set}))),
+      tab==="cost"?h(CostView,{x,set,total,base}):tab==="inf"?h(InflationView,{x,total}):h("main",null,
+        h("div",{className:"kpis"},
+          h("div",{className:"kpi"},h("span",null,"Annual revenue"),h("div",{className:"big"},inr(base.rev)),h("small",null,num(total)+" students, "+num(base.faculty)+" faculty")),
+          h("div",{className:"kpi"},h("span",null,"Student licences"),h("div",{className:"big"},inr(base.sRev)),h("small",null,num(base.paying)+" paying students")),
+          h("div",{className:"kpi"},h("span",null,"Faculty licences"),h("div",{className:"big"},inr(base.fRev)),h("small",null,(base.rev?(base.fRev/base.rev*100).toFixed(1):0)+"% of revenue")),
+          h("div",{className:"kpi"},h("span",null,"Year 1 profit or gap"),h("div",{className:"big "+(profit>=0?"pos":"neg")},inr(profit)),h("small",null,"after "+inr(x.cost)+" cost")),
+          h("div",{className:"kpi"},h("span",null,"Break-even students"),h("div",{className:"big"},isFinite(bePoints)?num(bePoints):"n/a"),h("small",null,"at "+inr(perStudent)+" per student, all-in"))),
+
+        h("div",{className:"tog"},h("span",null,"Show tables as:"),
+          h("button",{className:mode==="revenue"?"on":"",onClick:()=>setMode("revenue")},"Revenue"),
+          h("button",{className:mode==="profit"?"on":"",onClick:()=>setMode("profit")},"Profit after cost")),
+
+        h(Grid,{title:"Price vs number of students",desc:"How annual "+(mode==="profit"?"profit":"revenue")+" moves when you change the per-student price and the total student count. The outlined cell is your current plan.",
+          rowLabel:"Price",colLabel:"Students",rows:prices,cols:stud,baseR:x.sp,baseC:total,mode,
+          fn:(p,s)=>val(annual(s,p,x).rev),fmtRow:p=>"₹"+num(p),fmtCol:s=>num(s)}),
+
+        h(Grid,{title:"Price vs student adoption",desc:"Not every student will switch on the product. This shows the effect of adoption rate at each price, for your current "+num(total)+" students.",
+          rowLabel:"Price",colLabel:"Adoption",rows:prices,cols:adopts,baseR:x.sp,baseC:x.adopt,mode,
+          fn:(p,a)=>val(annual(total,p,{...x,adopt:a}).rev),fmtRow:p=>"₹"+num(p),fmtCol:a=>a+"%"}),
+
+        h(Grid,{title:"Pilot discount vs price",desc:"What a first-year discount costs you. Useful when negotiating pilot terms.",
+          rowLabel:"Discount",colLabel:"Price",rows:[0,20,30,50],cols:prices,baseR:x.disc,baseC:x.sp,mode,
+          fn:(d,p)=>val(annual(total,p,{...x,disc:d}).rev),fmtRow:d=>d+"%",fmtCol:p=>"₹"+num(p)}),
+
+        mode==="profit"&&h("div",{className:"legend",style:{marginTop:-12,marginBottom:20}},
+          h("span",null,h("i",{style:{background:"rgba(var(--good-rgb),.5)"}}),"Profit"),
+          h("span",null,h("i",{style:{background:"rgba(var(--bad-rgb),.5)"}}),"Loss")),
+
+        h("section",null,h("h2",null,"Three-year projection"),
+          h("p",null,"Starts from your current institutes. Each later year adds new institutes, applies churn, and grows students per institute."),
+          h("div",{className:"scroll"},h("table",null,
+            h("thead",null,h("tr",null,h("th",null,""),years.map(r=>h("th",{key:r.y},"Year "+r.y)))),
+            h("tbody",null,
+              h("tr",null,h("td",null,"Institutes"),years.map(r=>h("td",{key:r.y},r.n.toFixed(1)))),
+              h("tr",null,h("td",null,"Students"),years.map(r=>h("td",{key:r.y},num(r.s)))),
+              h("tr",null,h("td",null,"Revenue"),years.map(r=>h("td",{key:r.y},inr(r.rev)))),
+              h("tr",null,h("td",null,"Cost"),years.map(r=>h("td",{key:r.y},inr(r.cost)))),
+              h("tr",null,h("td",null,"Profit or gap"),years.map(r=>h("td",{key:r.y,className:r.p>=0?"pos":"neg"},inr(r.p)))))))
+          ,h("p",{className:"note"},"Meridian (recruiter) revenue is excluded. Treat it as upside once student data is large enough.")),
+
+        h("p",{className:"note"},"All figures are planning hypotheses. Replace the inputs with signed or quoted numbers before sharing with investors.")
+      )));
+}
+ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+</script>
+</body>
+</html>
