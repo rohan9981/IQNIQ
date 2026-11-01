@@ -87,6 +87,7 @@ const DEFAULTS={
   newY2:5,newY3:7,churn:5,studG:5,
   split:[38,14,10,12,14,5,7],
   fixedPct:[90,60,30,20,50,80,80],
+  runway:24,collect:50,buffer:15,dil:20,exitYr:5,exitMult:4.5,targetX:20,futDil:30,discRate:30,signed:0,arrMult:5,
 };
 const inr=n=>{const a=Math.abs(n),s=n<0?"-":"";
   if(a>=1e7)return s+"₹"+(a/1e7).toFixed(2)+" Cr";
@@ -192,6 +193,85 @@ function InflationView({x,total}){
           grid[i].map((v,j)=>h("td",{key:j,className:"cell"+(c===x.costInf&&pis[j]===x.priceInf?" base":""),style:{background:heat(v,mx)}},pc(v)))))))),
       h("p",{className:"note"},"Price escalation only holds if your contracts allow it, so consider an annual escalation clause in institute agreements. Contribution margin is revenue minus variable cost, before fixed costs.")));
 }
+function ValuationView({x,set,total}){
+  const R=Math.max(1,x.runway),ny=Math.ceil(R/12),pr=project(x,total,ny);
+  let gross=0,net=0;
+  pr.forEach((r,i)=>{const m=Math.min(12,R-12*i);if(m>0){gross+=r.cost*m/12;net+=(r.cost-r.rev*x.collect/100)*m/12}});
+  const buf=1+x.buffer/100,raiseG=gross*buf,raiseN=Math.max(0,net)*buf;
+  const d=x.dil/100,post=v=>d>0?v/d:0;
+  const yrs=Math.max(1,Math.round(x.exitYr)),ex=project(x,total,yrs),last=ex[ex.length-1];
+  const exitVal=last.rev*x.exitMult,keep=Math.max(0.01,1-x.futDil/100);
+  const vcPost=x.targetX>0?exitVal*keep/x.targetX:0;
+  const reqExit=post(raiseN)*x.targetX/keep,reqRev=x.exitMult>0?reqExit/x.exitMult:0,gap=last.rev?reqRev/last.rev:0;
+  const mults=[0.5,0.75,1,1.25,1.5],dils=[10,15,20,25,30];
+  const tx=[10,15,20,30],ms=[3,4.5,6,8,12];
+  const dr=x.discRate/100,dcf=(r,m)=>{const q=r/100;let pv=0;ex.forEach(o=>{pv+=o.p/Math.pow(1+q,o.y)});return pv+last.rev*m/Math.pow(1+q,yrs)};
+  const dcfV=dcf(x.discRate,x.exitMult),pvFlows=ex.reduce((a,o)=>a+o.p/Math.pow(1+dr,o.y),0),pvTV=last.rev*x.exitMult/Math.pow(1+dr,yrs);
+  const instRev=x.inst.map(o=>annual(o.s,x.sp,x).rev),cum=k=>instRev.slice(0,k).reduce((a,b)=>a+b,0);
+  const sg=Math.max(0,Math.min(x.inst.length,Math.round(x.signed))),arr=cum(sg),arrV=arr*x.arrMult;
+  const F=(l,k,s)=>h(Num,{label:l,k,x,set,step:s});
+  return h('main',null,
+    h('div',{className:'kpis'},
+      h('div',{className:'kpi'},h('span',null,'Amount to raise'),h('div',{className:'big'},inr(raiseN)),h('small',null,'Over '+R+' months, net of '+x.collect+'% revenue collected')),
+      h('div',{className:'kpi'},h('span',null,'Post-money, funding need'),h('div',{className:'big'},inr(post(raiseN))),h('small',null,'At '+x.dil+'% dilution')),
+      h('div',{className:'kpi'},h('span',null,'Post-money, VC method'),h('div',{className:'big'},inr(vcPost)),h('small',null,'Year '+yrs+' revenue '+inr(last.rev))),
+      h('div',{className:'kpi'},h('span',null,'Exit needed to justify funding-need value'),h('div',{className:'big '+(gap<=1?'pos':'neg')},inr(reqExit)),h('small',null,gap.toFixed(1)+'x your projected Year '+yrs+' revenue'))),
+    h('div',{className:'panel',style:{marginBottom:24}},h('h2',null,'Valuation assumptions'),
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',columnGap:24}},
+        F('Runway to fund (months)','runway'),F('Revenue collected in runway (%)','collect',5),F('Buffer on raise (%)','buffer',5),F('Dilution this round (%)','dil',1),
+        F('Exit year','exitYr'),F('Exit revenue multiple (x)','exitMult',0.5),F('Investor target return (x)','targetX',1),F('Further dilution before exit (%)','futDil',5),F('Discount rate, DCF (%)','discRate',1),F('Institutes with signed contracts','signed'),F('ARR multiple (x)','arrMult',0.5))),
+    h('section',null,h('h2',null,'1. Funding-need method'),
+      h('p',null,'Costs and revenue come from the inflation model for the runway period. Raise = net cash need plus buffer. Post-money = raise divided by the share you give up.'),
+      h('div',{className:'scroll'},h('table',null,
+        h('thead',null,h('tr',null,h('th',null,'Basis'),h('th',null,'Raise'),h('th',null,'Post-money'),h('th',null,'Pre-money'))),
+        h('tbody',null,[['Net of collected revenue',raiseN],['Gross burn, no revenue',raiseG]].map((o,i)=>h('tr',{key:i},h('td',null,o[0]),h('td',null,inr(o[1])),h('td',null,inr(post(o[1]))),h('td',null,inr(post(o[1])-o[1]))))))),
+      h('p',{className:'note'},'Colleges often pay annually and pilots are discounted, so keep the collected share conservative.')),
+    h('section',null,h('h2',null,'Post-money value: raise size vs dilution'),
+      h('p',null,'Rows scale the net raise. Columns are the equity given up. The outlined cell is your current setting.'),
+      h('div',{className:'scroll'},h('table',null,
+        h('thead',null,h('tr',null,h('th',null,'Raise ↓  /  Dilution →'),dils.map((v,i)=>h('th',{key:i},v+'%')))),
+        h('tbody',null,mults.map((m,i)=>h('tr',{key:i},h('td',null,inr(raiseN*m)),dils.map((v,j)=>h('td',{key:j,className:'cell'+(m===1&&v===x.dil?' base':'')},inr(raiseN*m/(v/100)))))))))),
+    h('section',null,h('h2',null,'2. VC method'),
+      h('p',null,'Works back from an exit. Post-money = exit value × share kept after later rounds ÷ the return the investor needs.'),
+      h('div',{className:'scroll'},h('table',null,
+        h('tbody',null,[['Exit-year revenue (Year '+yrs+')',inr(last.rev)],['Exit multiple',x.exitMult+'x'],['Exit value',inr(exitVal)],['Share kept after later rounds',(keep*100).toFixed(0)+'%'],['Investor target return',x.targetX+'x'],['Implied post-money today',inr(vcPost)],['Implied pre-money today',inr(vcPost-raiseN)]].map((o,i)=>h('tr',{key:i,className:i===5?'tot':''},h('td',null,o[0]),h('td',null,o[1])))))),
+      h('p',{className:'note'},'Compare this with the funding-need value. If the VC method gives a lower figure, investors will push your valuation down or ask for a bigger outcome.')),
+    h('section',null,h('h2',null,'VC method post-money: exit multiple vs target return'),
+      h('p',null,'Uses your Year '+yrs+' revenue of '+inr(last.rev)+' and '+x.futDil+'% further dilution.'),
+      h('div',{className:'scroll'},h('table',null,
+        h('thead',null,h('tr',null,h('th',null,'Target return ↓  /  Exit multiple →'),ms.map((v,i)=>h('th',{key:i},v+'x')))),
+        h('tbody',null,tx.map((t,i)=>h('tr',{key:i},h('td',null,t+'x'),ms.map((m,j)=>h('td',{key:j,className:'cell'+(t===x.targetX&&m===x.exitMult?' base':'')},inr(last.rev*m*keep/t))))))))),
+    h('section',null,h('h2',null,'3. Discounted cash flow (DCF)'),
+      h('p',null,'Discounts your projected yearly profit (a stand-in for free cash flow, before tax and capex) at '+x.discRate+'%, plus a terminal value of exit-year revenue × '+x.exitMult+'x. Early-stage rates are high because the risk is high.'),
+      h('div',{className:'scroll'},h('table',null,
+        h('thead',null,h('tr',null,h('th',null,'Year'),h('th',null,'Profit or gap'),h('th',null,'Discount factor'),h('th',null,'Present value'))),
+        h('tbody',null,ex.map(o=>h('tr',{key:o.y},h('td',null,'Year '+o.y),h('td',{className:o.p>=0?'pos':'neg'},inr(o.p)),h('td',null,(1/Math.pow(1+dr,o.y)).toFixed(3)),h('td',null,inr(o.p/Math.pow(1+dr,o.y))))).concat([
+          h('tr',{key:'a'},h('td',null,'PV of yearly cash flows'),h('td',null,''),h('td',null,''),h('td',null,inr(pvFlows))),
+          h('tr',{key:'b'},h('td',null,'PV of terminal value ('+inr(last.rev*x.exitMult)+' in Year '+yrs+')'),h('td',null,''),h('td',null,''),h('td',null,inr(pvTV))),
+          h('tr',{key:'c',className:'tot'},h('td',null,'DCF value today'),h('td',null,''),h('td',null,''),h('td',null,inr(dcfV)))])))),
+      h('p',{className:'note'},'The early losses are already deducted, so read this as roughly a pre-money value. Adding your raise of '+inr(raiseN)+' gives about '+inr(dcfV+raiseN)+' post-money. Most of the value usually sits in the terminal value, which is only as good as your exit assumptions.')),
+    h('section',null,h('h2',null,'DCF value: discount rate vs exit multiple'),
+      h('p',null,'Small changes in these two inputs move the answer a lot. That is why investors treat DCF as a cross-check, not the headline number.'),
+      h('div',{className:'scroll'},h('table',null,
+        h('thead',null,h('tr',null,h('th',null,'Discount rate ↓  /  Exit multiple →'),ms.map((v,i)=>h('th',{key:i},v+'x')))),
+        h('tbody',null,[20,25,30,35,40].map((r,i)=>h('tr',{key:i},h('td',null,r+'%'),ms.map((m,j)=>h('td',{key:j,className:'cell'+(r===x.discRate&&m===x.exitMult?' base':'')},inr(dcf(r,m)))))))))),
+    h('section',null,h('h2',null,'4. Revenue (ARR) multiple'),
+      h('p',null,'Values only contracted annual recurring revenue. Set how many institutes have signed in the assumptions panel. ARR uses your price, adoption and pilot discount, so a discounted pilot counts at the discounted amount.'),
+      h('div',{className:'kpis'},
+        h('div',{className:'kpi'},h('span',null,'Contracted ARR'),h('div',{className:'big'},inr(arr)),h('small',null,sg+' of '+x.inst.length+' institutes signed')),
+        h('div',{className:'kpi'},h('span',null,'Value at '+x.arrMult+'x ARR'),h('div',{className:'big'},inr(arrV)),h('small',null,sg?'On signed contracts only':'Nothing signed yet')),
+        h('div',{className:'kpi'},h('span',null,'If all institutes sign'),h('div',{className:'big'},inr(cum(x.inst.length)*x.arrMult)),h('small',null,'ARR '+inr(cum(x.inst.length))+' at '+x.arrMult+'x'))),
+      h('div',{className:'scroll'},h('table',null,
+        h('thead',null,h('tr',null,h('th',null,'Institutes signed'),h('th',null,'ARR'),ms.map((v,i)=>h('th',{key:i},v+'x')))),
+        h('tbody',null,x.inst.map((o,k)=>h('tr',{key:k},h('td',null,(k+1)+' ('+o.n+')'),h('td',null,inr(cum(k+1))),ms.map((m,j)=>h('td',{key:j,className:'cell'+(k+1===sg&&m===x.arrMult?' base':'')},inr(cum(k+1)*m)))))))),
+      h('p',{className:'note'},'Published multiples vary widely: some sources give 4 to 8x ARR for private SaaS, others claim 12 to 15x at seed. Indian ed-tech and institute-sales businesses with slow sales cycles are often priced at the lower end. Check recent comparable deals.')),
+    h('section',null,h('h2',null,'Summary across methods'),
+      h('div',{className:'scroll'},h('table',null,
+        h('thead',null,h('tr',null,h('th',null,'Method'),h('th',null,'Value'),h('th',{style:{textAlign:'left'}},'Basis'))),
+        h('tbody',null,[['Funding need',post(raiseN),'Post-money for a '+inr(raiseN)+' raise at '+x.dil+'% dilution'],['VC method',vcPost,'Post-money, Year '+yrs+' exit at '+x.exitMult+'x, '+x.targetX+'x target return'],['DCF',dcfV+raiseN,'Post-money: DCF value plus the raise, at '+x.discRate+'%'],['ARR multiple, signed',arrV,sg+' institutes signed at '+x.arrMult+'x'],['ARR multiple, all sign',cum(x.inst.length)*x.arrMult,'If all '+x.inst.length+' institutes sign']].map((o,i)=>h('tr',{key:i},h('td',null,o[0]),h('td',null,inr(o[1])),h('td',{className:'why'},o[2])))))),
+      h('p',{className:'note'},'The methods rarely agree. Treat the spread as your negotiating range and lead with the method you can best back up with evidence, such as signed contracts.')),
+    h('p',{className:'note'},'Illustrative planning tool, not financial advice. Only signed recurring contracts support a revenue multiple. Have a registered valuer or advisor review any figure before it goes into a deck or term sheet.'));
+}
 function CostView({x,set,total,base}){
   const sum=x.split.reduce((a,b)=>a+b,0);
   const amt=i=>x.cost*x.split[i]/100;
@@ -255,7 +335,8 @@ function App(){
     h("nav",{className:"tabs",role:"tablist"},
       h("button",{role:"tab","aria-selected":tab==="rev",className:tab==="rev"?"act":"",onClick:()=>setTab("rev")},"Revenue model"),
       h("button",{role:"tab","aria-selected":tab==="cost",className:tab==="cost"?"act":"",onClick:()=>setTab("cost")},"Cost breakdown"),
-      h("button",{role:"tab","aria-selected":tab==="inf",className:tab==="inf"?"act":"",onClick:()=>setTab("inf")},"Inflation and margins")),
+      h("button",{role:"tab","aria-selected":tab==="inf",className:tab==="inf"?"act":"",onClick:()=>setTab("inf")},"Inflation and margins"),
+      h("button",{role:"tab","aria-selected":tab==="val",className:tab==="val"?"act":"",onClick:()=>setTab("val")},"Valuation")),
     h("div",{className:"wrap"},
       h("aside",null,
         h("div",{className:"panel"},h("h2",null,"Institutes"),
@@ -282,7 +363,7 @@ function App(){
           h(Num,{label:"New institutes, Year 3",k:"newY3",x,set}),
           h(Num,{label:"Institute churn (%)",k:"churn",x,set}),
           h(Num,{label:"Student growth / year (%)",k:"studG",x,set}))),
-      tab==="cost"?h(CostView,{x,set,total,base}):tab==="inf"?h(InflationView,{x,total}):h("main",null,
+      tab==="cost"?h(CostView,{x,set,total,base}):tab==="inf"?h(InflationView,{x,total}):tab==="val"?h(ValuationView,{x,set,total}):h("main",null,
         h("div",{className:"kpis"},
           h("div",{className:"kpi"},h("span",null,"Annual revenue"),h("div",{className:"big"},inr(base.rev)),h("small",null,num(total)+" students, "+num(base.faculty)+" faculty")),
           h("div",{className:"kpi"},h("span",null,"Student licences"),h("div",{className:"big"},inr(base.sRev)),h("small",null,num(base.paying)+" paying students")),
