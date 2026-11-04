@@ -1,412 +1,933 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Revenue and price sensitivity model</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600&display=swap">
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>IGNIQ — Interactive Business Model &amp; Valuation Engine v3.0</title>
 <style>
 :root{
-  --bg:#f3f5f9;--surface:#ffffff;--text:#16192b;--muted:#5d6580;--line:#dde1ec;
-  --accent:#3b3fd8;--accent-soft:#e6e7fb;--good:#14804a;--bad:#c23a3a;--warn:#b7791f;
-  --good-rgb:20,128,74;--bad-rgb:194,58,58;
-  color-scheme:light;
-  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --navy:#0A1628; --navy2:#101F36; --navy3:#16294a; --line:#22395e;
+  --txt:#E8EEF7; --mut:#90A4C4; --acc:#39D3A0; --acc2:#5BA8FF;
+  --rev:#2FA37A; --cost:#D9A441; --pro:#5BA8FF; --neg:#FF6B6B;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--bg:#0f1220;--surface:#181c31;--text:#e9ebf6;--muted:#9aa1be;--line:#2a2f4b;--accent:#8c90ff;--accent-soft:#25294d;--good:#4cc38a;--bad:#ff7a7a;--warn:#e5b04f;--good-rgb:76,195,138;--bad-rgb:255,122,122;color-scheme:dark}
-}
-:root[data-theme="dark"]{--bg:#0f1220;--surface:#181c31;--text:#e9ebf6;--muted:#9aa1be;--line:#2a2f4b;--accent:#8c90ff;--accent-soft:#25294d;--good:#4cc38a;--bad:#ff7a7a;--warn:#e5b04f;--good-rgb:76,195,138;--bad-rgb:255,122,122;color-scheme:dark}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:400 15px/1.5 Figtree,system-ui,-apple-system,"Segoe UI",sans-serif}
-h1,h2,h3,.big{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;margin:0}
-header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:20px clamp(16px,3vw,32px);border-bottom:1px solid var(--line);background:var(--surface)}
-header h1{font-size:22px;font-weight:700}
-header p{margin:2px 0 0;color:var(--muted);font-size:13px}
-.btns{display:flex;gap:8px;flex-wrap:wrap}
-button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;padding:7px 12px}
-button:hover{border-color:var(--accent)}
-button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-.wrap{display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px;padding:24px clamp(16px,3vw,32px);max-width:1500px;margin:0 auto}
-@media (max-width:900px){.wrap{grid-template-columns:1fr}}
-aside{display:flex;flex-direction:column;gap:16px;align-self:start}
-@media (min-width:901px){aside{position:sticky;top:16px}}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px}
-.panel h2{font-size:16px;margin-bottom:12px}
-.field{display:grid;grid-template-columns:1fr 112px;gap:8px;align-items:center;margin-bottom:10px;font-size:14px}
-.field label{color:var(--muted)}
-input[type=number]{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;text-align:right}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px}
-.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.kpi span{display:block;color:var(--muted);font-size:13px}
-.kpi .big{font-size:26px;font-weight:700;margin-top:2px}
-.kpi small{color:var(--muted)}
-.pos{color:var(--good)}.neg{color:var(--bad)}
-section{margin-bottom:28px}
-section>h2{font-size:19px;margin-bottom:4px}
-section>p{margin:0 0 12px;color:var(--muted);max-width:70ch}
-.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
-table{border-collapse:collapse;width:100%;min-width:520px;font-variant-numeric:tabular-nums}
-th,td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
-th:first-child,td:first-child{text-align:left}
-thead th{font-weight:600;background:var(--bg);color:var(--muted)}
-tr:last-child td{border-bottom:0}
-td.cell{font-weight:500}
-td.base{outline:2px solid var(--accent);outline-offset:-2px}
-.tog{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
-.tog span{color:var(--muted);font-size:13px}
-.legend{display:flex;gap:16px;font-size:13px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
-.note{font-size:13px;color:var(--muted);margin-top:8px}
-.inst{display:grid;grid-template-columns:1fr 84px 70px;gap:6px;margin-bottom:8px;align-items:center;font-size:13px}
-.inst input[type=text]{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
-.hd{color:var(--muted);font-size:12px}
-.tabs{display:flex;gap:4px;padding:0 clamp(16px,3vw,32px);background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto}
-.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:12px 14px;color:var(--muted);white-space:nowrap}
-.tabs button.act{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
-.stack{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin-bottom:16px}
-.stack div{height:100%}
-.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px}
-td.why{white-space:normal;text-align:left;min-width:260px;color:var(--muted)}
-tr.tot td{font-weight:600;background:var(--bg)}
-.warn{color:var(--warn);font-size:13px;margin-top:8px}
+body{margin:0;background:var(--navy);color:var(--txt);font:14px/1.45 "Segoe UI",Inter,system-ui,sans-serif}
+header{background:linear-gradient(90deg,#0A1628,#16294a);padding:14px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+header h1{font-size:17px;margin:0;letter-spacing:.4px}
+header .tag{color:var(--mut);font-size:12px}
+.badge{background:#15372c;color:var(--acc);border:1px solid #1f5c48;padding:3px 9px;border-radius:20px;font-size:11px}
+.wrap{display:flex;align-items:flex-start}
+aside{width:320px;min-width:320px;background:var(--navy2);border-right:1px solid var(--line);height:calc(100vh - 56px);overflow-y:auto;position:sticky;top:56px;padding-bottom:40px}
+main{flex:1;min-width:0;padding:16px 20px 60px}
+.grp{border-bottom:1px solid var(--line)}
+.grp>h3{margin:0;padding:11px 14px;font-size:12px;letter-spacing:.9px;text-transform:uppercase;color:var(--acc);cursor:pointer;display:flex;justify-content:space-between}
+.grp>div{padding:4px 14px 14px;display:none}
+.grp.open>div{display:block}
+.fld{margin:9px 0}
+.fld label{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:3px}
+.fld label b{color:var(--txt);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--acc);height:16px}
+input[type=number],select{width:100%;background:var(--navy3);border:1px solid var(--line);color:var(--txt);border-radius:5px;padding:5px 7px;font-size:13px}
+input.cell{width:84px;text-align:right;padding:3px 5px;font-size:12.5px}
+input.cell:focus,input[type=number]:focus{outline:1px solid var(--acc);border-color:var(--acc)}
+.btn{background:var(--navy3);border:1px solid var(--line);color:var(--txt);padding:7px 11px;border-radius:6px;cursor:pointer;font-size:12.5px}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.on{background:var(--acc);color:#04291e;border-color:var(--acc);font-weight:600}
+.row{display:flex;gap:7px;flex-wrap:wrap}
+nav.tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:9px}
+nav.tabs button{background:none;border:1px solid transparent;color:var(--mut);padding:7px 12px;border-radius:7px;cursor:pointer;font-size:13px}
+nav.tabs button:hover{color:var(--txt);background:var(--navy2)}
+nav.tabs button.on{background:var(--navy3);color:var(--acc);border-color:var(--line);font-weight:600}
+section{display:none} section.on{display:block}
+h2{font-size:15px;margin:20px 0 9px;color:var(--acc2);letter-spacing:.3px}
+h2:first-child{margin-top:0}
+p.note{color:var(--mut);font-size:12.3px;margin:5px 0 12px;max-width:900px}
+table{border-collapse:collapse;width:100%;margin-bottom:8px;font-size:13px}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal;min-width:230px}
+thead th{background:var(--navy);color:#fff;font-weight:600;position:sticky;top:56px;z-index:5}
+tr.sec td{background:#0d1d33;color:var(--acc);font-weight:600;letter-spacing:.6px;font-size:11.5px;text-transform:uppercase}
+tr.rev td{background:rgba(47,163,122,.10)} tr.cost td{background:rgba(217,164,65,.10)}
+tr.pro td{background:rgba(91,168,255,.13);font-weight:600}
+tr.tot td{background:#13263f;font-weight:700}
+td.neg{color:var(--neg)} td.pos{color:var(--acc)}
+.tw{overflow-x:auto;border-radius:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:11px;margin-bottom:16px}
+.kpi{background:var(--navy2);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:9px;padding:11px 13px}
+.kpi .l{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+.kpi .v{font-size:21px;font-weight:700;margin:3px 0 1px}
+.kpi .s{font-size:11.5px;color:var(--mut)}
+.kpi.b{border-left-color:var(--acc2)} .kpi.w{border-left-color:var(--cost)} .kpi.r{border-left-color:var(--neg)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:14px}
+.card{background:var(--navy2);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+.card h4{margin:0 0 8px;font-size:13px;color:var(--acc2);font-weight:600}
+svg{display:block;width:100%;height:auto}
+.lg{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--mut);margin-top:6px}
+.lg i{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px}
+.hm td{text-align:center;min-width:72px;font-size:12px;border-color:#0A1628}
+.hm td:first-child{text-align:right;min-width:90px;background:var(--navy2);font-weight:600}
+.pill{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+.p-live{background:#15372c;color:var(--acc)} .p-dash{background:#2a2033;color:#b89ce0} .p-no{background:#2b1b1b;color:#e08b8b}
+.warn{background:#2a2112;border:1px solid #5c4620;color:#F0C674;padding:10px 13px;border-radius:8px;font-size:12.8px;margin-bottom:12px}
+.ok{background:#12291f;border:1px solid #1f5c48;color:var(--acc);padding:10px 13px;border-radius:8px;font-size:12.8px;margin-bottom:12px}
+.foot{color:var(--mut);font-size:11.5px;margin-top:24px;border-top:1px solid var(--line);padding-top:12px}
+@media(max-width:980px){.wrap{flex-direction:column}aside{width:100%;min-width:0;height:auto;position:static}thead th{top:0}}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<header>
+  <h1>IGNIQ <span style="color:var(--mut);font-weight:400">— Interactive Business Model &amp; Valuation Engine</span></h1>
+  <span class="tag">FY2027-28 → FY2031-32 · v3.0 live model</span>
+  <span class="badge" id="scenBadge">BASE CASE</span>
+  <span style="flex:1"></span>
+  <button class="btn" onclick="exportCSV()">⬇ Export CSV</button>
+  <button class="btn" onclick="window.print()">🖨 Print / PDF</button>
+  <button class="btn" onclick="resetAll()">↺ Reset</button>
+</header>
+
+<div class="wrap">
+<aside id="sidebar"></aside>
+<main>
+  <nav class="tabs" id="tabs"></nav>
+  <section id="t-dash" class="on"></section>
+  <section id="t-growth"></section>
+  <section id="t-price"></section>
+  <section id="t-rev"></section>
+  <section id="t-cost"></section>
+  <section id="t-pl"></section>
+  <section id="t-ue"></section>
+  <section id="t-val"></section>
+  <section id="t-scen"></section>
+  <section id="t-sens"></section>
+  <section id="t-road"></section>
+  <section id="t-audit"></section>
+  <div class="foot">All figures are planning hypotheses, not forecasts. Replace inputs with signed contracts and quoted costs before investor circulation. This tool is not financial, tax or legal advice.</div>
+</main>
+</div>
+
 <script>
-const {useState,useMemo,useEffect}=React;const h=React.createElement;
-const KEY="revmodel:v1";
-const DEFAULTS={
-  inst:[{n:"Institute A",s:2000},{n:"Institute B",s:1800},{n:"Institute C",s:1200}],
-  sp:1500,fp:1000,ratio:20,adopt:100,disc:0,cost:12000000,costInf:6,priceInf:5,fixedGrow:10,
-  newY2:5,newY3:7,churn:5,studG:5,
-  split:[38,14,10,12,14,5,7],
-  fixedPct:[90,60,30,20,50,80,80],
-  runway:24,collect:50,buffer:15,dil:20,exitYr:5,exitMult:4.5,targetX:20,futDil:30,discRate:30,signed:0,arrMult:5,
+/* ============================================================
+   1. STATE — every driver is editable
+   ============================================================ */
+const YL=['FY27-28','FY28-29','FY29-30','FY30-31','FY31-32'];
+const L=1e5; // 1 lakh
+
+const DEF={
+ // growth
+ newInst:[10,20,30,45,60], churn:10,
+ spi:[2000,2000,2200,2400,2600], fpi:[50,50,55,60,65],
+ bulkShare:20, bulkDisc:20, pilotDisc:10,
+ // pricing
+ sPrice:[1000,1000,1100,1200,1300],
+ rPrice:[0,100,100,120,120], rAdopt:[0,30,35,40,45],
+ fPrice:[1500,1500,1600,1700,1800],
+ cPrice:[0,3000,3000,3500,3500], cAdopt:[0,60,65,70,75],
+ vPrice:[0,5000,5000,6000,6000], vShare:[0,50,60,65,70], vDocs:[0,3,4,5,6],
+ mPrice:[0,0,800,900,1000], mAdopt:[0,0,40,50,55],
+ eFee:[0,0,150000,200000,250000], ePart:[0,0,5,15,30],
+ // costs (INR lakhs)
+ salLead:[18,20,64,76,90], salTech:[83.52,117.52,132,152,174],
+ salPsy:[18,29,36,42,48], salCont:[6.4,34.4,40,38,44],
+ salSales:[10.4,34.4,52,74,84], salOps:[6,16,28,34,40], salHEI:[6,16,20,12,14],
+ head:[14,24,36,46,56],
+ opTechFix:[11,17,25,34,46], opRnd:[13,13,11,11,12], opMkt:[14,27,43,63,88],
+ opOffice:[7.5,11,17,22,27], opLegal:[6,6,7,7,8],
+ cloudPerStudent:20, contingency:5, salMult:100, opexMult:100,
+ // unit econ
+ cogsS:[180,140,110,90,75], cogsF:[300,400,350,300,250],
+ // finance
+ tax:25, carryFwd:1, seed:400, grant:[17.15,17.15,0,0,0],
+ capex:[10,5,3,3,5], oneTime:[8,4,2,1,1], ramp:0.6, daPct:5,
+ // valuation
+ mult:10, seedPre:1200, aAmt:2500, aPre:8000, bAmt:10000, bPre:45000, esop:10,
+ exitMultLo:8, exitMultHi:10
 };
-const inr=n=>{const a=Math.abs(n),s=n<0?"-":"";
-  if(a>=1e7)return s+"₹"+(a/1e7).toFixed(2)+" Cr";
-  if(a>=1e5)return s+"₹"+(a/1e5).toFixed(1)+" L";
-  return s+"₹"+Math.round(a).toLocaleString("en-IN")};
-const num=n=>Math.round(n).toLocaleString("en-IN");
+let S=JSON.parse(JSON.stringify(DEF));
+let SCEN='base';
+const SCEN_DEF={
+ cons:{inst:.70,spi:.90,price:.95,adopt:.80,cost:.95},
+ base:{inst:1,spi:1,price:1,adopt:1,cost:1},
+ aggr:{inst:1.50,spi:1.10,price:1.00,adopt:1.15,cost:1.15}
+};
 
-const CATS=[
-  {n:"Engineering and AI team",d:"Product, backend, front end and ML engineers building the four modules and AI insights",c:"#3b3fd8"},
-  {n:"Psychologists and content",d:"Advisor retainers, assessment design and validation, licensing of established scales",c:"#7a5bd6"},
-  {n:"Cloud and security",d:"Hosting, data protection, security audits and backups",c:"#0f9aa8"},
-  {n:"Onboarding and support",d:"Implementation, training and helpdesk for each institute",c:"#e08a1e"},
-  {n:"Sales and marketing",d:"Pilot outreach, travel, events and demos for deans and directors",c:"#d1495b"},
-  {n:"Legal and compliance",d:"DPDP Act consent framework, contracts and privacy reviews",c:"#5a9a3c"},
-  {n:"Admin and contingency",d:"Accounting, tools, office and a buffer for overruns",c:"#8a8fa8"}
-];
-// core revenue formula
-function annual(students,p,x){
-  const paying=students*x.adopt/100;
-  const faculty=students/x.ratio;
-  const sRev=paying*p*(1-x.disc/100);
-  const fRev=faculty*x.fp*(1-x.disc/100);
-  return{paying,faculty,sRev,fRev,rev:sRev+fRev};
+/* ============================================================
+   2. ENGINE — pure function, no DOM
+   ============================================================ */
+function compute(s,mod){
+ const m=Object.assign({inst:1,spi:1,price:1,adopt:1,cost:1},mod||{});
+ const n=5, cap=x=>Math.max(0,Math.min(1,x));
+ const R={newI:[],churned:[],inst:[],stu:[],fac:[]};
+ let prev=0;
+ for(let i=0;i<n;i++){
+   R.newI[i]=s.newInst[i]*m.inst;
+   R.churned[i]=prev*s.churn/100;
+   R.inst[i]=prev+R.newI[i]-R.churned[i]; if(R.inst[i]<0)R.inst[i]=0;
+   prev=R.inst[i];
+   R.stu[i]=R.inst[i]*s.spi[i]*m.spi;
+   R.fac[i]=R.inst[i]*s.fpi[i];
+ }
+ const bs=s.bulkShare/100, bd=s.bulkDisc/100;
+ R.stuStd=[];R.stuDis=[];R.facStd=[];R.facDis=[];
+ R.serenStd=[];R.serenDis=[];R.pilotS=[];R.seren=[];R.resume=[];R.resumeN=[];
+ R.prismStd=[];R.prismDis=[];R.pilotF=[];R.prism=[];R.cert=[];R.certN=[];
+ R.vElig=[];R.vDocsT=[];R.vista=[];R.merPay=[];R.mer=[];R.emp=[];R.rev=[];
+ for(let i=0;i<n;i++){
+   const p=s.sPrice[i]*m.price, f=s.fPrice[i]*m.price;
+   R.stuStd[i]=R.stu[i]*(1-bs); R.stuDis[i]=R.stu[i]*bs;
+   R.facStd[i]=R.fac[i]*(1-bs); R.facDis[i]=R.fac[i]*bs;
+   R.serenStd[i]=R.stuStd[i]*p/L; R.serenDis[i]=R.stuDis[i]*p*(1-bd)/L;
+   R.pilotS[i]= i===0 ? (R.serenStd[i]+R.serenDis[i])*s.pilotDisc/100 : 0;
+   R.seren[i]=R.serenStd[i]+R.serenDis[i]-R.pilotS[i];
+   R.resumeN[i]=R.stu[i]*cap(s.rAdopt[i]/100*m.adopt);
+   R.resume[i]=R.resumeN[i]*s.rPrice[i]*m.price/L;
+   R.prismStd[i]=R.facStd[i]*f/L; R.prismDis[i]=R.facDis[i]*f*(1-bd)/L;
+   R.pilotF[i]= i===0 ? (R.prismStd[i]+R.prismDis[i])*s.pilotDisc/100 : 0;
+   R.prism[i]=R.prismStd[i]+R.prismDis[i]-R.pilotF[i];
+   R.certN[i]=R.fac[i]*cap(s.cAdopt[i]/100*m.adopt);
+   R.cert[i]=R.certN[i]*s.cPrice[i]*m.price/L;
+   R.vElig[i]=R.inst[i]*cap(s.vShare[i]/100*m.adopt);
+   R.vDocsT[i]=R.vElig[i]*s.vDocs[i];
+   R.vista[i]=R.vDocsT[i]*s.vPrice[i]*m.price/L;
+   R.merPay[i]=R.stu[i]*cap(s.mAdopt[i]/100*m.adopt);
+   R.mer[i]=R.merPay[i]*s.mPrice[i]*m.price/L;
+   R.emp[i]=s.ePart[i]*s.eFee[i]*m.price/L;
+   R.rev[i]=R.seren[i]+R.resume[i]+R.prism[i]+R.cert[i]+R.vista[i]+R.mer[i]+R.emp[i];
+ }
+ // costs
+ const sm=s.salMult/100*m.cost, om=s.opexMult/100*m.cost;
+ R.sal={};['Lead','Tech','Psy','Cont','Sales','Ops','HEI'].forEach(k=>{
+   R.sal[k]=s['sal'+k].map(v=>v*sm);
+ });
+ R.salTot=[];R.cloud=[];R.techInfra=[];R.nonSalBase=[];R.cont=[];R.nonSal=[];R.cost=[];
+ for(let i=0;i<n;i++){
+   R.salTot[i]=Object.keys(R.sal).reduce((a,k)=>a+R.sal[k][i],0);
+   R.cloud[i]=R.stu[i]*s.cloudPerStudent/L*om;
+   R.techInfra[i]=s.opTechFix[i]*om+R.cloud[i];
+   R.nonSalBase[i]=R.techInfra[i]+(s.opRnd[i]+s.opMkt[i]+s.opOffice[i]+s.opLegal[i])*om;
+   R.cont[i]=R.nonSalBase[i]*s.contingency/100;
+   R.nonSal[i]=R.nonSalBase[i]+R.cont[i];
+   R.cost[i]=R.salTot[i]+R.nonSal[i];
+ }
+ // P&L
+ R.ebitda=[];R.ebitdaM=[];R.da=[];R.ebit=[];R.taxv=[];R.pat=[];
+ let carry=0;
+ for(let i=0;i<n;i++){
+   R.ebitda[i]=R.rev[i]-R.cost[i];
+   R.ebitdaM[i]=R.rev[i]>0?R.ebitda[i]/R.rev[i]*100:0;
+   R.da[i]=R.techInfra[i]*s.daPct/100;
+   R.ebit[i]=R.ebitda[i]-R.da[i];
+   let tb=R.ebit[i];
+   if(s.carryFwd){ if(tb<0){carry+=-tb;tb=0;} else {const u=Math.min(carry,tb);tb-=u;carry-=u;} }
+   R.taxv[i]= tb>0 ? tb*s.tax/100 : 0;
+   R.pat[i]=R.ebit[i]-R.taxv[i];
+ }
+ // cash
+ R.open=[];R.close=[];
+ let c=s.seed;
+ for(let i=0;i<n;i++){
+   R.open[i]=c;
+   c=c+R.rev[i]-R.cost[i]-R.taxv[i]-s.capex[i]-s.oneTime[i]+s.grant[i];
+   R.close[i]=c;
+ }
+ // monthly engine
+ R.months=[];let bal=s.seed,beOp=null,beCash=null,minBal=s.seed,minM=0,cumOp=0;
+ for(let y=0;y<n;y++){
+   for(let k=1;k<=12;k++){
+     const w=1+s.ramp*((2*(k-.5)/12)-1);
+     const mr=R.rev[y]*w/12, mc=(R.cost[y]+R.taxv[y]+s.capex[y]+s.oneTime[y])/12, mg=s.grant[y]/12;
+     const net=mr-mc+mg; bal+=net; cumOp+=mr-mc;
+     const idx=y*12+k;
+     if(beOp===null && mr>=(R.cost[y]/12)) beOp=idx;
+     if(beCash===null && cumOp>=0) beCash=idx;
+     if(bal<minBal){minBal=bal;minM=idx;}
+     R.months.push({i:idx,y:y,rev:mr,cost:mc,net:net,bal:bal});
+   }
+ }
+ R.beOp=beOp;R.beCash=beCash;R.minBal=minBal;R.minM=minM;
+ R.burn=R.months.filter(x=>x.net<0).map(x=>-x.net);
+ R.peakBurn=R.burn.length?Math.max(...R.burn):0;
+ R.runway= R.minBal>0 ? 'Never runs dry' : 'Cash gap';
+ R.peakNeed= R.minBal<0 ? -R.minBal : 0;
+ // unit economics
+ R.arpuS=[];R.arpuF=[];R.gmS=[];R.gmF=[];R.acv=[];R.cac=[];R.gmBlend=[];R.ltv=[];R.lcac=[];R.pay=[];
+ for(let i=0;i<n;i++){
+   R.arpuS[i]=R.stu[i]?(R.seren[i]+R.resume[i]+R.mer[i])*L/R.stu[i]:0;
+   R.arpuF[i]=R.fac[i]?(R.prism[i]+R.cert[i])*L/R.fac[i]:0;
+   R.gmS[i]=R.arpuS[i]?(R.arpuS[i]-s.cogsS[i])/R.arpuS[i]*100:0;
+   R.gmF[i]=R.arpuF[i]?(R.arpuF[i]-s.cogsF[i])/R.arpuF[i]*100:0;
+   const cogs=(s.cogsS[i]*R.stu[i]+s.cogsF[i]*R.fac[i])/L;
+   R.gmBlend[i]=R.rev[i]?(R.rev[i]-cogs)/R.rev[i]:0;
+   R.acv[i]=R.inst[i]?R.rev[i]*L/R.inst[i]:0;
+   R.cac[i]=R.newI[i]?(R.sal.Sales[i]+s.opMkt[i]*om)*L/R.newI[i]:0;
+   let sum=0,rr=1;for(let t=0;t<5;t++){sum+=rr;rr*=(1-s.churn/100);}
+   R.ltv[i]=R.acv[i]*R.gmBlend[i]*sum;
+   R.lcac[i]=R.cac[i]?R.ltv[i]/R.cac[i]:0;
+   R.pay[i]=(R.acv[i]*R.gmBlend[i])>0?R.cac[i]/(R.acv[i]*R.gmBlend[i]/12):0;
+ }
+ R.cagr = R.rev[0]>0 ? (Math.pow(R.rev[4]/R.rev[0],1/4)-1)*100 : 0;
+ R.nrr=[];
+ for(let i=1;i<n;i++){
+   const base=R.inst[i-1]*(1-s.churn/100);
+   R.nrr[i]= R.rev[i-1]>0 ? (base*R.acv[i]/L)/R.rev[i-1]*100 : 0;
+ }
+ return R;
 }
-function load(){try{const v=localStorage.getItem(KEY);if(v)return Object.assign({},DEFAULTS,JSON.parse(v))}catch(e){}return DEFAULTS}
 
-function Num({label,k,x,set,step}){
-  return h("div",{className:"field"},h("label",{htmlFor:k},label),
-    h("input",{id:k,type:"number",value:x[k],step:step||1,onChange:e=>set({...x,[k]:parseFloat(e.target.value)||0})}));
+/* ============================================================
+   3. FORMATTERS
+   ============================================================ */
+const nf=(v,d=2)=>(v==null||isNaN(v))?'—':Number(v).toLocaleString('en-IN',{minimumFractionDigits:d,maximumFractionDigits:d});
+const ni=v=>(v==null||isNaN(v))?'—':Math.round(v).toLocaleString('en-IN');
+const cr=v=>nf(v/100,2);
+const rs=v=>'₹'+ni(v);
+const pc=(v,d=1)=>(v==null||isNaN(v))?'—':nf(v,d)+'%';
+const mon=i=>i==null?'Not reached':'Month '+i+' ('+YL[Math.floor((i-1)/12)]+' Q'+(Math.floor(((i-1)%12)/3)+1)+')';
+
+/* ============================================================
+   4. SIDEBAR
+   ============================================================ */
+function sld(k,lab,min,max,step,suf){
+ return `<div class="fld"><label>${lab}<b id="lb_${k}">${S[k]}${suf||''}</b></label>
+ <input type="range" min="${min}" max="${max}" step="${step}" value="${S[k]}" data-k="${k}" data-sl="1"></div>`;
 }
-function heat(v,max){
-  const t=Math.min(1,Math.abs(v)/(max||1))*0.55+0.08;
-  return v>=0?`rgba(var(--good-rgb),${t})`:`rgba(var(--bad-rgb),${t})`;
+function num(k,lab){return `<div class="fld"><label>${lab}</label><input type="number" value="${S[k]}" data-k="${k}"></div>`;}
+
+function buildSidebar(){
+ document.getElementById('sidebar').innerHTML=`
+ <div class="grp open"><h3>Scenario <span>▾</span></h3><div>
+   <div class="row" style="margin-bottom:8px">
+     <button class="btn" data-sc="cons">Conservative</button>
+     <button class="btn on" data-sc="base">Base</button>
+     <button class="btn" data-sc="aggr">Aggressive</button>
+   </div>
+   <p style="color:var(--mut);font-size:11.5px;margin:0">Scenarios are multipliers on the same engine, so any edit you make flows through all three.</p>
+ </div></div>
+
+ <div class="grp open"><h3>Growth engine <span>▾</span></h3><div>
+   ${sld('churn','Annual institute churn',0,30,1,'%')}
+   ${sld('bulkShare','Students in &gt;3000 institutes',0,60,5,'%')}
+   ${sld('bulkDisc','Bulk discount',0,40,1,'%')}
+   ${sld('pilotDisc','Pilot discount (Y1 only)',0,40,1,'%')}
+ </div></div>
+
+ <div class="grp"><h3>Cost knobs <span>▾</span></h3><div>
+   ${sld('salMult','Salary level vs plan',60,160,5,'%')}
+   ${sld('opexMult','Non-salary opex vs plan',60,160,5,'%')}
+   ${sld('cloudPerStudent','Cloud + infra per student',5,80,1,' ₹/yr')}
+   ${sld('contingency','Contingency on opex',0,15,1,'%')}
+ </div></div>
+
+ <div class="grp"><h3>Finance <span>▾</span></h3><div>
+   ${sld('tax','Corporate tax rate',0,40,1,'%')}
+   ${sld('daPct','D&amp;A as % of tech infra',0,20,1,'%')}
+   ${sld('ramp','In-year revenue ramp (0=flat)',0,1.5,.1,'')}
+   ${num('seed','Opening cash / seed (₹ lakhs)')}
+   <div class="fld"><label>Carry forward losses for tax</label>
+   <select data-k="carryFwd"><option value="1">Yes (recommended)</option><option value="0">No</option></select></div>
+ </div></div>
+
+ <div class="grp"><h3>Valuation <span>▾</span></h3><div>
+   ${sld('mult','ARR multiple (headline)',4,25,.5,'x')}
+   ${num('seedPre','Seed pre-money (₹ lakhs)')}
+   ${num('aAmt','Series A raise (₹ lakhs)')}
+   ${num('aPre','Series A pre-money (₹ lakhs)')}
+   ${num('bAmt','Series B raise (₹ lakhs)')}
+   ${num('bPre','Series B pre-money (₹ lakhs)')}
+   ${sld('esop','ESOP pool',0,25,1,'%')}
+ </div></div>`;
+ document.querySelectorAll('.grp>h3').forEach(h=>h.onclick=()=>h.parentNode.classList.toggle('open'));
+ document.querySelectorAll('[data-sc]').forEach(b=>b.onclick=()=>{
+   SCEN=b.dataset.sc;
+   document.querySelectorAll('[data-sc]').forEach(x=>x.classList.toggle('on',x===b));
+   document.getElementById('scenBadge').textContent=
+     ({cons:'CONSERVATIVE',base:'BASE CASE',aggr:'AGGRESSIVE'})[SCEN];
+   render();
+ });
 }
-function Grid({title,desc,rowLabel,rows,cols,colLabel,fn,baseR,baseC,mode,fmtRow,fmtCol}){
-  const vals=rows.map(r=>cols.map(c=>fn(r,c)));
-  const max=Math.max(...vals.flat().map(Math.abs));
-  return h("section",null,h("h2",null,title),h("p",null,desc),
-    h("div",{className:"scroll"},h("table",null,
-      h("thead",null,h("tr",null,h("th",null,rowLabel+" ↓  /  "+colLabel+" →"),cols.map((c,i)=>h("th",{key:i},fmtCol(c))))),
-      h("tbody",null,rows.map((r,i)=>h("tr",{key:i},h("td",null,fmtRow(r)),
-        vals[i].map((v,j)=>h("td",{key:j,className:"cell"+(r===baseR&&cols[j]===baseC?" base":""),style:{background:mode==="profit"?heat(v,max):undefined}},inr(v))))))
-    )));
+
+/* ============================================================
+   5. TABLE HELPERS
+   ============================================================ */
+function hdr(first){return '<thead><tr><th>'+first+'</th>'+YL.map(y=>'<th>'+y+'</th>').join('')+'</tr></thead>';}
+function row(lab,vals,o){
+ o=o||{};const f=o.fmt||(v=>nf(v));
+ return '<tr class="'+(o.cls||'')+'"><td>'+lab+'</td>'+vals.map(v=>{
+   const neg=(typeof v==='number'&&v<0);
+   return '<td class="'+(neg?'neg':'')+'">'+f(v)+'</td>';}).join('')+'</tr>';
+}
+function erow(lab,key,o){
+ o=o||{};const st=o.step||1;
+ return '<tr><td>'+lab+'</td>'+S[key].map((v,i)=>
+   '<td><input class="cell" type="number" step="'+st+'" value="'+v+'" data-k="'+key+'" data-i="'+i+'"></td>').join('')+'</tr>';
+}
+function sec(t){return '<tr class="sec"><td colspan="6">'+t+'</td></tr>';}
+
+/* ============================================================
+   6. SVG CHARTS (hand-rolled, zero dependencies)
+   ============================================================ */
+function chartStacked(labels,series,fmt){
+ const W=820,H=300,P={l:62,r:12,t:14,b:34};
+ const tot=labels.map((_,i)=>series.reduce((a,s)=>a+Math.max(0,s.data[i]),0));
+ const mx=Math.max(1,...tot)*1.12;
+ const iw=W-P.l-P.r, ih=H-P.t-P.b, bw=iw/labels.length*0.62;
+ let g='';
+ for(let k=0;k<=4;k++){const y=P.t+ih-ih*k/4;
+   g+=`<line x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}" stroke="#22395e" stroke-width="1"/>
+       <text x="${P.l-7}" y="${y+4}" fill="#90A4C4" font-size="10.5" text-anchor="end">${fmt(mx*k/4)}</text>`;}
+ labels.forEach((lb,i)=>{
+   const cx=P.l+iw*(i+.5)/labels.length; let acc=0;
+   series.forEach(s=>{const v=Math.max(0,s.data[i]);const h=ih*v/mx;
+     if(h>0.4)g+=`<rect x="${cx-bw/2}" y="${P.t+ih-acc-h}" width="${bw}" height="${h}" fill="${s.c}"><title>${s.n}: ${fmt(v)}</title></rect>`;
+     acc+=h;});
+   g+=`<text x="${cx}" y="${P.t+ih-acc-7}" fill="#E8EEF7" font-size="11" font-weight="600" text-anchor="middle">${fmt(tot[i])}</text>`;
+   g+=`<text x="${cx}" y="${H-11}" fill="#90A4C4" font-size="11" text-anchor="middle">${lb}</text>`;});
+ return `<svg viewBox="0 0 ${W} ${H}">${g}</svg><div class="lg">`+
+  series.map(s=>`<span><i style="background:${s.c}"></i>${s.n}</span>`).join('')+`</div>`;
+}
+function chartLine(labels,series,fmt,zero){
+ const W=820,H=290,P={l:62,r:12,t:14,b:34};
+ const all=series.flatMap(s=>s.data);
+ let mx=Math.max(...all),mn=Math.min(0,...all);
+ if(mx===mn)mx=mn+1; const pad=(mx-mn)*0.12; mx+=pad; mn-=pad;
+ const iw=W-P.l-P.r,ih=H-P.t-P.b;
+ const X=i=>P.l+iw*(labels.length===1?.5:i/(labels.length-1));
+ const Y=v=>P.t+ih-ih*(v-mn)/(mx-mn);
+ let g='';
+ for(let k=0;k<=4;k++){const v=mn+(mx-mn)*k/4,y=Y(v);
+   g+=`<line x1="${P.l}" y1="${y}" x2="${W-P.r}" y2="${y}" stroke="#22395e"/>
+       <text x="${P.l-7}" y="${y+4}" fill="#90A4C4" font-size="10.5" text-anchor="end">${fmt(v)}</text>`;}
+ if(zero&&mn<0)g+=`<line x1="${P.l}" y1="${Y(0)}" x2="${W-P.r}" y2="${Y(0)}" stroke="#7d8da8" stroke-dasharray="4 3"/>`;
+ series.forEach(s=>{
+   const d=s.data.map((v,i)=>(i?'L':'M')+X(i)+' '+Y(v)).join(' ');
+   if(s.area)g+=`<path d="${d} L ${X(s.data.length-1)} ${Y(Math.max(mn,0))} L ${X(0)} ${Y(Math.max(mn,0))} Z" fill="${s.c}" opacity=".13"/>`;
+   g+=`<path d="${d}" fill="none" stroke="${s.c}" stroke-width="2.4"/>`;
+   s.data.forEach((v,i)=>{g+=`<circle cx="${X(i)}" cy="${Y(v)}" r="3.6" fill="${s.c}"><title>${s.n} ${labels[i]}: ${fmt(v)}</title></circle>`;});
+ });
+ labels.forEach((lb,i)=>{if(labels.length<=12||i%6===0)
+   g+=`<text x="${X(i)}" y="${H-11}" fill="#90A4C4" font-size="10.5" text-anchor="middle">${lb}</text>`;});
+ return `<svg viewBox="0 0 ${W} ${H}">${g}</svg><div class="lg">`+
+   series.map(s=>`<span><i style="background:${s.c}"></i>${s.n}</span>`).join('')+`</div>`;
+}
+function heatColor(t){ // 0..1 -> red->amber->green
+ const r=t<.5?255:Math.round(255-(t-.5)*2*200);
+ const g=t<.5?Math.round(80+t*2*175):255-Math.round((t-.5)*2*40);
+ return `rgba(${r},${g},110,${.18+t*.45})`;
 }
 
-// multi-year projection: price escalation on revenue, inflation on cost, fixed vs variable split
-function project(x,total,N){
-  const avg=total/Math.max(1,x.inst.length);
-  const sum=x.split.reduce((a,b)=>a+b,0)||1;
-  const fb=CATS.reduce((a,_,i)=>a+x.cost*x.split[i]/sum*x.fixedPct[i]/100,0);
-  const vb=x.cost-fb;
-  let n=x.inst.length;const out=[];
-  for(let y=1;y<=N;y++){
-    if(y>=2)n=n*(1-x.churn/100)+(y===2?x.newY2:x.newY3);
-    const s=n*avg*Math.pow(1+x.studG/100,y-1);
-    const pf=Math.pow(1+x.priceInf/100,y-1),cf=Math.pow(1+x.costInf/100,y-1);
-    const r=annual(s,x.sp*pf,{...x,fp:x.fp*pf});
-    const fixed=fb*cf*Math.pow(1+x.fixedGrow/100,y-1);
-    const variable=vb*(total?s/total:0)*cf;
-    const cost=fixed+variable,p=r.rev-cost;
-    out.push({y,n,s,price:x.sp*pf,rev:r.rev,fixed,variable,cost,p,margin:r.rev?p/r.rev*100:0,cm:r.rev?(r.rev-variable)/r.rev*100:0});
-  }
-  return out;
+/* ============================================================
+   7. RENDER
+   ============================================================ */
+const TABS=[['t-dash','Dashboard'],['t-growth','Growth Drivers'],['t-price','Pricing'],['t-rev','Revenue'],
+ ['t-cost','Costs'],['t-pl','P&L + Cash'],['t-ue','Unit Economics'],['t-val','Valuation'],
+ ['t-scen','Scenarios'],['t-sens','Sensitivity'],['t-road','Roadmap & Risk'],['t-audit','Model Audit']];
+function buildTabs(){
+ document.getElementById('tabs').innerHTML=TABS.map((t,i)=>
+  `<button data-t="${t[0]}" class="${i===0?'on':''}">${t[1]}</button>`).join('');
+ document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{
+   document.querySelectorAll('[data-t]').forEach(x=>x.classList.toggle('on',x===b));
+   document.querySelectorAll('main section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));
+   window.scrollTo({top:0,behavior:'smooth'});
+ });
 }
-function InflationView({x,total}){
-  const N=5,rows=project(x,total,N);
-  const cum=rows.reduce((a,r)=>a+r.p,0);
-  const be=rows.find(r=>r.p>=0);
-  const last=rows[N-1];
-  const line=(label,f,cls)=>h("tr",null,h("td",null,label),rows.map(r=>h("td",{key:r.y,className:cls?cls(r):""},f(r))));
-  const cis=[-4,-2,0,2,4].map(d=>x.costInf+d).filter(v=>v>=0);
-  const pis=[-5,-2.5,0,2.5,5].map(d=>x.priceInf+d).filter(v=>v>=0);
-  const m5=(ci,pi)=>project({...x,costInf:ci,priceInf:pi},total,N)[N-1].margin;
-  const grid=cis.map(c=>pis.map(p=>m5(c,p)));
-  const mx=Math.max(...grid.flat().map(Math.abs));
-  const pc=v=>v.toFixed(1)+"%";
-  return h("main",null,
-    h("div",{className:"kpis"},
-      h("div",{className:"kpi"},h("span",null,"Year 5 revenue"),h("div",{className:"big"},inr(last.rev)),h("small",null,"Price per student "+inr(last.price))),
-      h("div",{className:"kpi"},h("span",null,"Year 5 profit margin"),h("div",{className:"big "+(last.margin>=0?"pos":"neg")},pc(last.margin)),h("small",null,"Year 1: "+pc(rows[0].margin))),
-      h("div",{className:"kpi"},h("span",null,"First profitable year"),h("div",{className:"big"},be?"Year "+be.y:"Beyond Year "+N),h("small",null,"Annual profit at or above zero")),
-      h("div",{className:"kpi"},h("span",null,"Cumulative profit, "+N+" years"),h("div",{className:"big "+(cum>=0?"pos":"neg")},inr(cum)),h("small",null,"Nominal rupees"))),
-    h("section",null,h("h2",null,"Five-year view with inflation"),
-      h("p",null,"Prices rise by "+x.priceInf+"% a year and costs by "+x.costInf+"% a year. Fixed costs also step up by "+x.fixedGrow+"% a year for hiring. Variable costs scale with student numbers. Change these in the Costs and growth panel."),
-      h("div",{className:"scroll"},h("table",null,
-        h("thead",null,h("tr",null,h("th",null,""),rows.map(r=>h("th",{key:r.y},"Year "+r.y)))),
-        h("tbody",null,
-          line("Institutes",r=>r.n.toFixed(1)),
-          line("Students",r=>num(r.s)),
-          line("Price per student",r=>inr(r.price)),
-          line("Revenue",r=>inr(r.rev)),
-          line("Fixed cost",r=>inr(r.fixed)),
-          line("Variable cost",r=>inr(r.variable)),
-          line("Total cost",r=>inr(r.cost)),
-          line("Profit or gap",r=>inr(r.p),r=>r.p>=0?"pos":"neg"),
-          line("Contribution margin",r=>pc(r.cm)),
-          line("Profit margin",r=>pc(r.margin),r=>r.margin>=0?"pos":"neg"))))),
-    h("section",null,h("h2",null,"Year 5 profit margin: cost inflation vs price escalation"),
-      h("p",null,"If costs rise faster than the prices you can charge, margins shrink. Rows are cost inflation, columns are price escalation. The outlined cell is your current setting."),
-      h("div",{className:"scroll"},h("table",null,
-        h("thead",null,h("tr",null,h("th",null,"Cost inflation ↓  /  Price escalation →"),pis.map((p,i)=>h("th",{key:i},p+"%")))),
-        h("tbody",null,cis.map((c,i)=>h("tr",{key:i},h("td",null,c+"%"),
-          grid[i].map((v,j)=>h("td",{key:j,className:"cell"+(c===x.costInf&&pis[j]===x.priceInf?" base":""),style:{background:heat(v,mx)}},pc(v)))))))),
-      h("p",{className:"note"},"Price escalation only holds if your contracts allow it, so consider an annual escalation clause in institute agreements. Contribution margin is revenue minus variable cost, before fixed costs.")));
+let R; // current results
+
+function render(){
+ const mod=SCEN_DEF[SCEN];
+ R=compute(S,mod);
+ document.querySelectorAll('[data-sl]').forEach(sl=>{
+   const k=sl.dataset.k;sl.value=S[k];
+   const lb=document.getElementById('lb_'+k);
+   if(lb)lb.textContent=S[k]+(sl.parentNode.querySelector('b').textContent.replace(/^[\d.-]+/,'')||'');
+ });
+ ['churn','bulkShare','bulkDisc','pilotDisc','salMult','opexMult','contingency','tax','daPct','esop']
+   .forEach(k=>{const e=document.getElementById('lb_'+k);if(e)e.textContent=S[k]+'%';});
+ ['cloudPerStudent'].forEach(k=>{const e=document.getElementById('lb_'+k);if(e)e.textContent='₹'+S[k]+'/yr';});
+ ['mult'].forEach(k=>{const e=document.getElementById('lb_'+k);if(e)e.textContent=S[k]+'x';});
+ const e=document.getElementById('lb_ramp'); if(e)e.textContent=S.ramp;
+ renderDash();renderGrowth();renderPrice();renderRev();renderCost();renderPL();
+ renderUE();renderVal();renderScen();renderSens();renderRoad();renderAudit();
 }
-function ValuationView({x,set,total}){
-  const R=Math.max(1,x.runway),ny=Math.ceil(R/12),pr=project(x,total,ny);
-  let gross=0,net=0;
-  pr.forEach((r,i)=>{const m=Math.min(12,R-12*i);if(m>0){gross+=r.cost*m/12;net+=(r.cost-r.rev*x.collect/100)*m/12}});
-  const buf=1+x.buffer/100,raiseG=gross*buf,raiseN=Math.max(0,net)*buf;
-  const d=x.dil/100,post=v=>d>0?v/d:0;
-  const yrs=Math.max(1,Math.round(x.exitYr)),ex=project(x,total,yrs),last=ex[ex.length-1];
-  const exitVal=last.rev*x.exitMult,keep=Math.max(0.01,1-x.futDil/100);
-  const vcPost=x.targetX>0?exitVal*keep/x.targetX:0;
-  const reqExit=post(raiseN)*x.targetX/keep,reqRev=x.exitMult>0?reqExit/x.exitMult:0,gap=last.rev?reqRev/last.rev:0;
-  const mults=[0.5,0.75,1,1.25,1.5],dils=[10,15,20,25,30];
-  const tx=[10,15,20,30],ms=[3,4.5,6,8,12];
-  const dr=x.discRate/100,dcf=(r,m)=>{const q=r/100;let pv=0;ex.forEach(o=>{pv+=o.p/Math.pow(1+q,o.y)});return pv+last.rev*m/Math.pow(1+q,yrs)};
-  const dcfV=dcf(x.discRate,x.exitMult),pvFlows=ex.reduce((a,o)=>a+o.p/Math.pow(1+dr,o.y),0),pvTV=last.rev*x.exitMult/Math.pow(1+dr,yrs);
-  const instRev=x.inst.map(o=>annual(o.s,x.sp,x).rev),cum=k=>instRev.slice(0,k).reduce((a,b)=>a+b,0);
-  const sg=Math.max(0,Math.min(x.inst.length,Math.round(x.signed))),arr=cum(sg),arrV=arr*x.arrMult;
-  const F=(l,k,s)=>h(Num,{label:l,k,x,set,step:s});
-  return h('main',null,
-    h('div',{className:'kpis'},
-      h('div',{className:'kpi'},h('span',null,'Amount to raise'),h('div',{className:'big'},inr(raiseN)),h('small',null,'Over '+R+' months, net of '+x.collect+'% revenue collected')),
-      h('div',{className:'kpi'},h('span',null,'Post-money, funding need'),h('div',{className:'big'},inr(post(raiseN))),h('small',null,'At '+x.dil+'% dilution')),
-      h('div',{className:'kpi'},h('span',null,'Post-money, VC method'),h('div',{className:'big'},inr(vcPost)),h('small',null,'Year '+yrs+' revenue '+inr(last.rev))),
-      h('div',{className:'kpi'},h('span',null,'Exit needed to justify funding-need value'),h('div',{className:'big '+(gap<=1?'pos':'neg')},inr(reqExit)),h('small',null,gap.toFixed(1)+'x your projected Year '+yrs+' revenue'))),
-    h('div',{className:'panel',style:{marginBottom:24}},h('h2',null,'Valuation assumptions'),
-      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',columnGap:24}},
-        F('Runway to fund (months)','runway'),F('Revenue collected in runway (%)','collect',5),F('Buffer on raise (%)','buffer',5),F('Dilution this round (%)','dil',1),
-        F('Exit year','exitYr'),F('Exit revenue multiple (x)','exitMult',0.5),F('Investor target return (x)','targetX',1),F('Further dilution before exit (%)','futDil',5),F('Discount rate, DCF (%)','discRate',1),F('Institutes with signed contracts','signed'),F('ARR multiple (x)','arrMult',0.5))),
-    h('section',null,h('h2',null,'1. Funding-need method'),
-      h('p',null,'Costs and revenue come from the inflation model for the runway period. Raise = net cash need plus buffer. Post-money = raise divided by the share you give up.'),
-      h('div',{className:'scroll'},h('table',null,
-        h('thead',null,h('tr',null,h('th',null,'Basis'),h('th',null,'Raise'),h('th',null,'Post-money'),h('th',null,'Pre-money'))),
-        h('tbody',null,[['Net of collected revenue',raiseN],['Gross burn, no revenue',raiseG]].map((o,i)=>h('tr',{key:i},h('td',null,o[0]),h('td',null,inr(o[1])),h('td',null,inr(post(o[1]))),h('td',null,inr(post(o[1])-o[1]))))))),
-      h('p',{className:'note'},'Colleges often pay annually and pilots are discounted, so keep the collected share conservative.')),
-    h('section',null,h('h2',null,'Post-money value: raise size vs dilution'),
-      h('p',null,'Rows scale the net raise. Columns are the equity given up. The outlined cell is your current setting.'),
-      h('div',{className:'scroll'},h('table',null,
-        h('thead',null,h('tr',null,h('th',null,'Raise ↓  /  Dilution →'),dils.map((v,i)=>h('th',{key:i},v+'%')))),
-        h('tbody',null,mults.map((m,i)=>h('tr',{key:i},h('td',null,inr(raiseN*m)),dils.map((v,j)=>h('td',{key:j,className:'cell'+(m===1&&v===x.dil?' base':'')},inr(raiseN*m/(v/100)))))))))),
-    h('section',null,h('h2',null,'2. VC method'),
-      h('p',null,'Works back from an exit. Post-money = exit value × share kept after later rounds ÷ the return the investor needs.'),
-      h('div',{className:'scroll'},h('table',null,
-        h('tbody',null,[['Exit-year revenue (Year '+yrs+')',inr(last.rev)],['Exit multiple',x.exitMult+'x'],['Exit value',inr(exitVal)],['Share kept after later rounds',(keep*100).toFixed(0)+'%'],['Investor target return',x.targetX+'x'],['Implied post-money today',inr(vcPost)],['Implied pre-money today',inr(vcPost-raiseN)]].map((o,i)=>h('tr',{key:i,className:i===5?'tot':''},h('td',null,o[0]),h('td',null,o[1])))))),
-      h('p',{className:'note'},'Compare this with the funding-need value. If the VC method gives a lower figure, investors will push your valuation down or ask for a bigger outcome.')),
-    h('section',null,h('h2',null,'VC method post-money: exit multiple vs target return'),
-      h('p',null,'Uses your Year '+yrs+' revenue of '+inr(last.rev)+' and '+x.futDil+'% further dilution.'),
-      h('div',{className:'scroll'},h('table',null,
-        h('thead',null,h('tr',null,h('th',null,'Target return ↓  /  Exit multiple →'),ms.map((v,i)=>h('th',{key:i},v+'x')))),
-        h('tbody',null,tx.map((t,i)=>h('tr',{key:i},h('td',null,t+'x'),ms.map((m,j)=>h('td',{key:j,className:'cell'+(t===x.targetX&&m===x.exitMult?' base':'')},inr(last.rev*m*keep/t))))))))),
-    h('section',null,h('h2',null,'3. Discounted cash flow (DCF)'),
-      h('p',null,'Discounts your projected yearly profit (a stand-in for free cash flow, before tax and capex) at '+x.discRate+'%, plus a terminal value of exit-year revenue × '+x.exitMult+'x. Early-stage rates are high because the risk is high.'),
-      h('div',{className:'scroll'},h('table',null,
-        h('thead',null,h('tr',null,h('th',null,'Year'),h('th',null,'Profit or gap'),h('th',null,'Discount factor'),h('th',null,'Present value'))),
-        h('tbody',null,ex.map(o=>h('tr',{key:o.y},h('td',null,'Year '+o.y),h('td',{className:o.p>=0?'pos':'neg'},inr(o.p)),h('td',null,(1/Math.pow(1+dr,o.y)).toFixed(3)),h('td',null,inr(o.p/Math.pow(1+dr,o.y))))).concat([
-          h('tr',{key:'a'},h('td',null,'PV of yearly cash flows'),h('td',null,''),h('td',null,''),h('td',null,inr(pvFlows))),
-          h('tr',{key:'b'},h('td',null,'PV of terminal value ('+inr(last.rev*x.exitMult)+' in Year '+yrs+')'),h('td',null,''),h('td',null,''),h('td',null,inr(pvTV))),
-          h('tr',{key:'c',className:'tot'},h('td',null,'DCF value today'),h('td',null,''),h('td',null,''),h('td',null,inr(dcfV)))])))),
-      h('p',{className:'note'},'The early losses are already deducted, so read this as roughly a pre-money value. Adding your raise of '+inr(raiseN)+' gives about '+inr(dcfV+raiseN)+' post-money. Most of the value usually sits in the terminal value, which is only as good as your exit assumptions.')),
-    h('section',null,h('h2',null,'DCF value: discount rate vs exit multiple'),
-      h('p',null,'Small changes in these two inputs move the answer a lot. That is why investors treat DCF as a cross-check, not the headline number.'),
-      h('div',{className:'scroll'},h('table',null,
-        h('thead',null,h('tr',null,h('th',null,'Discount rate ↓  /  Exit multiple →'),ms.map((v,i)=>h('th',{key:i},v+'x')))),
-        h('tbody',null,[20,25,30,35,40].map((r,i)=>h('tr',{key:i},h('td',null,r+'%'),ms.map((m,j)=>h('td',{key:j,className:'cell'+(r===x.discRate&&m===x.exitMult?' base':'')},inr(dcf(r,m)))))))))),
-    h('section',null,h('h2',null,'4. Revenue (ARR) multiple'),
-      h('p',null,'Values only contracted annual recurring revenue. Set how many institutes have signed in the assumptions panel. ARR uses your price, adoption and pilot discount, so a discounted pilot counts at the discounted amount.'),
-      h('div',{className:'kpis'},
-        h('div',{className:'kpi'},h('span',null,'Contracted ARR'),h('div',{className:'big'},inr(arr)),h('small',null,sg+' of '+x.inst.length+' institutes signed')),
-        h('div',{className:'kpi'},h('span',null,'Value at '+x.arrMult+'x ARR'),h('div',{className:'big'},inr(arrV)),h('small',null,sg?'On signed contracts only':'Nothing signed yet')),
-        h('div',{className:'kpi'},h('span',null,'If all institutes sign'),h('div',{className:'big'},inr(cum(x.inst.length)*x.arrMult)),h('small',null,'ARR '+inr(cum(x.inst.length))+' at '+x.arrMult+'x'))),
-      h('div',{className:'scroll'},h('table',null,
-        h('thead',null,h('tr',null,h('th',null,'Institutes signed'),h('th',null,'ARR'),ms.map((v,i)=>h('th',{key:i},v+'x')))),
-        h('tbody',null,x.inst.map((o,k)=>h('tr',{key:k},h('td',null,(k+1)+' ('+o.n+')'),h('td',null,inr(cum(k+1))),ms.map((m,j)=>h('td',{key:j,className:'cell'+(k+1===sg&&m===x.arrMult?' base':'')},inr(cum(k+1)*m)))))))),
-      h('p',{className:'note'},'Published multiples vary widely: some sources give 4 to 8x ARR for private SaaS, others claim 12 to 15x at seed. Indian ed-tech and institute-sales businesses with slow sales cycles are often priced at the lower end. Check recent comparable deals.')),
-    h('section',null,h('h2',null,'Summary across methods'),
-      h('div',{className:'scroll'},h('table',null,
-        h('thead',null,h('tr',null,h('th',null,'Method'),h('th',null,'Value'),h('th',{style:{textAlign:'left'}},'Basis'))),
-        h('tbody',null,[['Funding need',post(raiseN),'Post-money for a '+inr(raiseN)+' raise at '+x.dil+'% dilution'],['VC method',vcPost,'Post-money, Year '+yrs+' exit at '+x.exitMult+'x, '+x.targetX+'x target return'],['DCF',dcfV+raiseN,'Post-money: DCF value plus the raise, at '+x.discRate+'%'],['ARR multiple, signed',arrV,sg+' institutes signed at '+x.arrMult+'x'],['ARR multiple, all sign',cum(x.inst.length)*x.arrMult,'If all '+x.inst.length+' institutes sign']].map((o,i)=>h('tr',{key:i},h('td',null,o[0]),h('td',null,inr(o[1])),h('td',{className:'why'},o[2])))))),
-      h('p',{className:'note'},'The methods rarely agree. Treat the spread as your negotiating range and lead with the method you can best back up with evidence, such as signed contracts.')),
-    h('p',{className:'note'},'Illustrative planning tool, not financial advice. Only signed recurring contracts support a revenue multiple. Have a registered valuer or advisor review any figure before it goes into a deck or term sheet.'));
+
+function kpi(l,v,s,c){return `<div class="kpi ${c||''}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;}
+
+function renderDash(){
+ const neg=R.ebitda[0]<0;
+ document.getElementById('t-dash').innerHTML=`
+ <div class="kpis">
+  ${kpi('Year-5 revenue','₹'+cr(R.rev[4])+' Cr','FY2031-32 · '+pc(R.cagr)+' CAGR')}
+  ${kpi('Year-5 EBITDA','₹'+cr(R.ebitda[4])+' Cr',pc(R.ebitdaM[4])+' margin',R.ebitda[4]<0?'r':'b')}
+  ${kpi('Operating break-even',R.beOp?mon(R.beOp):'Not reached','monthly revenue ≥ monthly cost','w')}
+  ${kpi('Cumulative break-even',R.beCash?mon(R.beCash):'Not reached','cumulative op. cash turns positive','w')}
+  ${kpi('Lowest cash balance','₹'+nf(R.minBal)+' L',R.minBal<0?'FUNDING GAP at month '+R.minM:'at month '+R.minM,R.minBal<0?'r':'')}
+  ${kpi('Peak monthly burn','₹'+nf(R.peakBurn)+' L','worst negative cash month','w')}
+  ${kpi('LTV : CAC (Y5)',nf(R.lcac[4],1)+' : 1','payback '+nf(R.pay[4],1)+' months','b')}
+  ${kpi('Implied value on Y5 ARR','₹'+nf(R.rev[4]*S.mult/100,0)+' Cr','at '+S.mult+'x revenue','b')}
+ </div>
+ <div class="cards">
+  <div class="card"><h4>Revenue build by product line (₹ Lakhs)</h4>
+   ${chartStacked(YL,[
+    {n:'SEREN licences',c:'#2FA37A',data:R.seren},{n:'SEREN resumes',c:'#57C79A',data:R.resume},
+    {n:'PRISM licences',c:'#5BA8FF',data:R.prism},{n:'PRISM certification',c:'#8FC6FF',data:R.cert},
+    {n:'VISTA documents',c:'#D9A441',data:R.vista},{n:'MERIDIAN students',c:'#B388FF',data:R.mer},
+    {n:'Employers',c:'#FF8FA3',data:R.emp}],v=>nf(v,0))}</div>
+  <div class="card"><h4>Revenue vs total cost vs EBITDA (₹ Lakhs)</h4>
+   ${chartLine(YL,[{n:'Revenue',c:'#2FA37A',data:R.rev,area:1},{n:'Total cost',c:'#D9A441',data:R.cost},
+    {n:'EBITDA',c:'#5BA8FF',data:R.ebitda}],v=>nf(v,0),1)}</div>
+  <div class="card"><h4>Monthly cash balance, 60 months (₹ Lakhs)</h4>
+   ${chartLine(R.months.map(m=>'M'+m.i),[{n:'Cash balance',c:'#39D3A0',data:R.months.map(m=>m.bal),area:1}],v=>nf(v,0),1)}</div>
+  <div class="card"><h4>EBITDA margin &amp; gross margin (%)</h4>
+   ${chartLine(YL,[{n:'EBITDA margin',c:'#5BA8FF',data:R.ebitdaM},
+    {n:'Gross margin (COGS basis)',c:'#39D3A0',data:R.gmBlend.map(v=>v*100)}],v=>nf(v,0)+'%',1)}</div>
+ </div>
+ ${neg?'<div class="warn" style="margin-top:14px"><b>Year 1 runs at a loss of ₹'+nf(-R.ebitda[0])+' L.</b> That is normal for a build year — the thing to defend to investors is the lowest cash point ('+ (R.minBal<0?'<b style="color:#FF6B6B">a ₹'+nf(-R.minBal)+' L gap</b>':'₹'+nf(R.minBal)+' L, covered') +') and the break-even month, not the Year-5 number.</div>':''}`;
 }
-function CostView({x,set,total,base}){
-  const sum=x.split.reduce((a,b)=>a+b,0);
-  const amt=i=>x.cost*x.split[i]/100;
-  const setPct=(i,v)=>set({...x,split:x.split.map((p,j)=>j===i?v:p)});
-  const ratio=base.rev?x.cost/base.rev*100:0;
-  const setFixed=(i,v)=>set({...x,fixedPct:x.fixedPct.map((p,j)=>j===i?v:p)});
-  const fx=CATS.reduce((a,_,i)=>a+amt(i)*x.fixedPct[i]/100,0),vr=x.cost*sum/100-fx;
-  return h("main",null,
-    h("div",{className:"kpis"},
-      h("div",{className:"kpi"},h("span",null,"Total annual cost"),h("div",{className:"big"},inr(x.cost)),h("small",null,"Set in the Costs and growth panel")),
-      h("div",{className:"kpi"},h("span",null,"Monthly burn"),h("div",{className:"big"},inr(x.cost/12)),h("small",null,"Average over 12 months")),
-      h("div",{className:"kpi"},h("span",null,"Cost per student"),h("div",{className:"big"},inr(total?x.cost/total:0)),h("small",null,"Across "+num(total)+" students")),
-      h("div",{className:"kpi"},h("span",null,"Cost as share of revenue"),h("div",{className:"big "+(ratio<=100?"pos":"neg")},ratio.toFixed(0)+"%"),h("small",null,"Revenue "+inr(base.rev)))),
-    h("section",null,h("h2",null,"Where the money goes"),
-      h("p",null,"Edit the share of each line. Amounts update from the total annual cost, so changing that figure rescales every line."),
-      h("div",{className:"stack",role:"img","aria-label":"Cost split by category"},
-        CATS.map((c,i)=>h("div",{key:i,title:c.n+": "+x.split[i]+"%",style:{width:(sum?x.split[i]/sum*100:0)+"%",background:c.c}}))),
-      h("div",{className:"scroll"},h("table",{style:{minWidth:1120}},
-        h("thead",null,h("tr",null,h("th",null,"Category"),h("th",null,"Share (%)"),h("th",null,"Annual"),h("th",null,"Monthly"),h("th",null,"Per student"),h("th",null,"Fixed (%)"),h("th",null,"Fixed"),h("th",null,"Variable"),h("th",{style:{textAlign:"left"}},"What it covers"))),
-        h("tbody",null,
-          CATS.map((c,i)=>h("tr",{key:i},
-            h("td",null,h("span",{className:"sw",style:{background:c.c}}),c.n),
-            h("td",null,h("input",{type:"number","aria-label":c.n+" share",value:x.split[i],step:1,style:{width:72},onChange:e=>setPct(i,parseFloat(e.target.value)||0)})),
-            h("td",null,inr(amt(i))),h("td",null,inr(amt(i)/12)),h("td",null,inr(total?amt(i)/total:0)),
-            h("td",null,h("input",{type:"number","aria-label":c.n+" fixed share",value:x.fixedPct[i],step:5,style:{width:72},onChange:e=>setFixed(i,Math.min(100,Math.max(0,parseFloat(e.target.value)||0)))})),h("td",null,inr(amt(i)*x.fixedPct[i]/100)),h("td",null,inr(amt(i)*(100-x.fixedPct[i])/100)),h("td",{className:"why"},c.d))),
-          h("tr",{className:"tot"},h("td",null,"Total"),h("td",null,sum.toFixed(0)+"%"),h("td",null,inr(x.cost*sum/100)),h("td",null,inr(x.cost*sum/100/12)),h("td",null,inr(total?x.cost*sum/100/total:0)),h("td",null,x.cost*sum>0?(fx/(x.cost*sum/100)*100).toFixed(0)+"%":"0%"),h("td",null,inr(fx)),h("td",null,inr(vr)),h("td",{className:"why"},""))))),
-      sum!==100&&h("p",{className:"warn"},"Shares add up to "+sum.toFixed(1)+"%. Adjust them so they total 100%."),
-      h("div",{className:"btns",style:{marginTop:12}},h("button",{onClick:()=>set({...x,split:DEFAULTS.split})},"Restore default split")),
-      h("p",{className:"note"},"Fixed costs stay the same as students grow, while variable costs scale with student numbers; set the fixed share of each line. The default split is an illustrative starting point. Replace it with salary plans, vendor quotes and advisor fees before sharing with investors.")));
+
+function renderGrowth(){
+ document.getElementById('t-growth').innerHTML=`
+ <h2>Institute, student and faculty build-up</h2>
+ <p class="note">Edit any white cell. Cumulative institutes = prior year + new signings − churn, so churn compounds properly rather than being typed in. Scenario multipliers are applied on top of whatever you type here.</p>
+ <div class="tw"><table>${hdr('Growth driver')}<tbody>
+ ${sec('Institutes')}
+ ${erow('New institutes signed that year','newInst')}
+ ${row('Churned institutes (computed @'+S.churn+'%)',R.churned,{fmt:v=>nf(v,1),cls:'cost'})}
+ ${row('Total active institutes (cumulative)',R.inst,{fmt:v=>nf(v,1),cls:'tot'})}
+ ${sec('Students')}
+ ${erow('Average students per institute','spi',{step:50})}
+ ${row('Total student licences (gross)',R.stu,{fmt:ni,cls:'tot'})}
+ ${row('— at standard price ('+(100-S.bulkShare)+'%)',R.stuStd,{fmt:ni})}
+ ${row('— at bulk discount ('+S.bulkShare+'% @ '+S.bulkDisc+'% off)',R.stuDis,{fmt:ni})}
+ ${sec('Faculty')}
+ ${erow('Average faculty per institute','fpi')}
+ ${row('Total faculty licences (gross)',R.fac,{fmt:ni,cls:'tot'})}
+ ${sec('Derived volumes')}
+ ${row('Resume downloads',R.resumeN,{fmt:ni})}
+ ${row('Certification completions',R.certN,{fmt:ni})}
+ ${row('Institutes eligible for VISTA downloads',R.vElig,{fmt:v=>nf(v,1)})}
+ ${row('Total VISTA documents downloaded',R.vDocsT,{fmt:ni})}
+ ${row('MERIDIAN paying students',R.merPay,{fmt:ni})}
+ </tbody></table></div>
+ <div class="cards"><div class="card"><h4>Institutes and students</h4>
+ ${chartLine(YL,[{n:'Active institutes',c:'#5BA8FF',data:R.inst}],v=>nf(v,0))}</div>
+ <div class="card"><h4>Student licences</h4>
+ ${chartLine(YL,[{n:'Students',c:'#39D3A0',data:R.stu,area:1}],v=>ni(v))}</div></div>`;
 }
-function App(){
-  const [x,set]=useState(load);
-  const [mode,setMode]=useState("revenue");
-  const [tab,setTab]=useState("rev");
-  const [theme,setTheme]=useState("");
-  useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(x))}catch(e){}},[x]);
-  useEffect(()=>{if(theme)document.documentElement.setAttribute("data-theme",theme);else document.documentElement.removeAttribute("data-theme")},[theme]);
 
-  const total=x.inst.reduce((a,i)=>a+i.s,0);
-  const base=annual(total,x.sp,x);
-  const profit=base.rev-x.cost;
-  const perStudent=x.sp*x.adopt/100*(1-x.disc/100)+x.fp/x.ratio*(1-x.disc/100);
-  const bePoints=perStudent>0?x.cost/perStudent:Infinity;
-
-  const prices=useMemo(()=>{const o=[];for(let p=x.sp-600;p<=x.sp+600;p+=300)if(p>0)o.push(p);return o},[x.sp]);
-  const stud=useMemo(()=>[0.6,0.8,1,1.25,1.5,2].map(m=>Math.round(total*m)),[total]);
-  const adopts=[40,60,80,100];
-  const val=(rev)=>mode==="profit"?rev-x.cost:rev;
-
-  // 3-year projection
-  const years=useMemo(()=>project(x,total,3),[x,total]);
-
-  const setInst=(i,f,v)=>set({...x,inst:x.inst.map((o,j)=>j===i?{...o,[f]:v}:o)});
-
-  return h("div",null,
-    h("header",null,
-      h("div",null,h("h1",null,"Revenue and price sensitivity model"),h("p",null,"Student and faculty licences across partner institutes. Inputs save in this browser.")),
-      h("div",{className:"btns"},
-        h("button",{onClick:()=>setTheme(theme==="dark"?"light":"dark")},"Toggle theme"),
-        h("button",{onClick:()=>set(DEFAULTS)},"Reset inputs"))),
-    h("nav",{className:"tabs",role:"tablist"},
-      h("button",{role:"tab","aria-selected":tab==="rev",className:tab==="rev"?"act":"",onClick:()=>setTab("rev")},"Revenue model"),
-      h("button",{role:"tab","aria-selected":tab==="cost",className:tab==="cost"?"act":"",onClick:()=>setTab("cost")},"Cost breakdown"),
-      h("button",{role:"tab","aria-selected":tab==="inf",className:tab==="inf"?"act":"",onClick:()=>setTab("inf")},"Inflation and margins"),
-      h("button",{role:"tab","aria-selected":tab==="val",className:tab==="val"?"act":"",onClick:()=>setTab("val")},"Valuation")),
-    h("div",{className:"wrap"},
-      h("aside",null,
-        h("div",{className:"panel"},h("h2",null,"Institutes"),
-          h("div",{className:"inst hd"},h("span",null,"Name"),h("span",null,"Students"),h("span",null,"Faculty")),
-          x.inst.map((o,i)=>h("div",{className:"inst",key:i},
-            h("input",{type:"text","aria-label":"Institute name",value:o.n,onChange:e=>setInst(i,"n",e.target.value)}),
-            h("input",{type:"number","aria-label":"Students",value:o.s,onChange:e=>setInst(i,"s",parseInt(e.target.value)||0),style:{textAlign:"right"}}),
-            h("span",null,num(o.s/x.ratio)))),
-          h("div",{style:{display:"flex",gap:8,marginTop:6}},
-            h("button",{onClick:()=>set({...x,inst:[...x.inst,{n:"Institute "+(x.inst.length+1),s:1000}]})},"Add institute"),
-            x.inst.length>1&&h("button",{onClick:()=>set({...x,inst:x.inst.slice(0,-1)})},"Remove last"))),
-        h("div",{className:"panel"},h("h2",null,"Pricing"),
-          h(Num,{label:"Per student / year (₹)",k:"sp",x,set,step:100}),
-          h(Num,{label:"Per faculty / year (₹)",k:"fp",x,set,step:100}),
-          h(Num,{label:"Students per faculty",k:"ratio",x,set}),
-          h(Num,{label:"Student adoption (%)",k:"adopt",x,set}),
-          h(Num,{label:"Pilot discount (%)",k:"disc",x,set})),
-        h("div",{className:"panel"},h("h2",null,"Costs and growth"),
-          h(Num,{label:"Annual cost, Year 1 (₹)",k:"cost",x,set,step:100000}),
-          h(Num,{label:"Cost inflation / year (%)",k:"costInf",x,set,step:0.5}),
-          h(Num,{label:"Fixed cost step-up / year (%)",k:"fixedGrow",x,set,step:0.5}),
-          h(Num,{label:"Price escalation / year (%)",k:"priceInf",x,set,step:0.5}),
-          h(Num,{label:"New institutes, Year 2",k:"newY2",x,set}),
-          h(Num,{label:"New institutes, Year 3",k:"newY3",x,set}),
-          h(Num,{label:"Institute churn (%)",k:"churn",x,set}),
-          h(Num,{label:"Student growth / year (%)",k:"studG",x,set}))),
-      tab==="cost"?h(CostView,{x,set,total,base}):tab==="inf"?h(InflationView,{x,total}):tab==="val"?h(ValuationView,{x,set,total}):h("main",null,
-        h("div",{className:"kpis"},
-          h("div",{className:"kpi"},h("span",null,"Annual revenue"),h("div",{className:"big"},inr(base.rev)),h("small",null,num(total)+" students, "+num(base.faculty)+" faculty")),
-          h("div",{className:"kpi"},h("span",null,"Student licences"),h("div",{className:"big"},inr(base.sRev)),h("small",null,num(base.paying)+" paying students")),
-          h("div",{className:"kpi"},h("span",null,"Faculty licences"),h("div",{className:"big"},inr(base.fRev)),h("small",null,(base.rev?(base.fRev/base.rev*100).toFixed(1):0)+"% of revenue")),
-          h("div",{className:"kpi"},h("span",null,"Year 1 profit or gap"),h("div",{className:"big "+(profit>=0?"pos":"neg")},inr(profit)),h("small",null,"after "+inr(x.cost)+" cost")),
-          h("div",{className:"kpi"},h("span",null,"Break-even students"),h("div",{className:"big"},isFinite(bePoints)?num(bePoints):"n/a"),h("small",null,"at "+inr(perStudent)+" per student, all-in"))),
-
-        h("div",{className:"tog"},h("span",null,"Show tables as:"),
-          h("button",{className:mode==="revenue"?"on":"",onClick:()=>setMode("revenue")},"Revenue"),
-          h("button",{className:mode==="profit"?"on":"",onClick:()=>setMode("profit")},"Profit after cost")),
-
-        h(Grid,{title:"Price vs number of students",desc:"How annual "+(mode==="profit"?"profit":"revenue")+" moves when you change the per-student price and the total student count. The outlined cell is your current plan.",
-          rowLabel:"Price",colLabel:"Students",rows:prices,cols:stud,baseR:x.sp,baseC:total,mode,
-          fn:(p,s)=>val(annual(s,p,x).rev),fmtRow:p=>"₹"+num(p),fmtCol:s=>num(s)}),
-
-        h(Grid,{title:"Price vs student adoption",desc:"Not every student will switch on the product. This shows the effect of adoption rate at each price, for your current "+num(total)+" students.",
-          rowLabel:"Price",colLabel:"Adoption",rows:prices,cols:adopts,baseR:x.sp,baseC:x.adopt,mode,
-          fn:(p,a)=>val(annual(total,p,{...x,adopt:a}).rev),fmtRow:p=>"₹"+num(p),fmtCol:a=>a+"%"}),
-
-        h(Grid,{title:"Pilot discount vs price",desc:"What a first-year discount costs you. Useful when negotiating pilot terms.",
-          rowLabel:"Discount",colLabel:"Price",rows:[0,20,30,50],cols:prices,baseR:x.disc,baseC:x.sp,mode,
-          fn:(d,p)=>val(annual(total,p,{...x,disc:d}).rev),fmtRow:d=>d+"%",fmtCol:p=>"₹"+num(p)}),
-
-        mode==="profit"&&h("div",{className:"legend",style:{marginTop:-12,marginBottom:20}},
-          h("span",null,h("i",{style:{background:"rgba(var(--good-rgb),.5)"}}),"Profit"),
-          h("span",null,h("i",{style:{background:"rgba(var(--bad-rgb),.5)"}}),"Loss")),
-
-        h("section",null,h("h2",null,"Three-year projection"),
-          h("p",null,"Starts from your current institutes. Each later year adds new institutes, applies churn, and grows students per institute."),
-          h("div",{className:"scroll"},h("table",null,
-            h("thead",null,h("tr",null,h("th",null,""),years.map(r=>h("th",{key:r.y},"Year "+r.y)))),
-            h("tbody",null,
-              h("tr",null,h("td",null,"Institutes"),years.map(r=>h("td",{key:r.y},r.n.toFixed(1)))),
-              h("tr",null,h("td",null,"Students"),years.map(r=>h("td",{key:r.y},num(r.s)))),
-              h("tr",null,h("td",null,"Revenue"),years.map(r=>h("td",{key:r.y},inr(r.rev)))),
-              h("tr",null,h("td",null,"Cost"),years.map(r=>h("td",{key:r.y},inr(r.cost)))),
-              h("tr",null,h("td",null,"Profit or gap"),years.map(r=>h("td",{key:r.y,className:r.p>=0?"pos":"neg"},inr(r.p)))))))
-          ,h("p",{className:"note"},"Meridian (recruiter) revenue is excluded. Treat it as upside once student data is large enough.")),
-
-        h("p",{className:"note"},"All figures are planning hypotheses. Replace the inputs with signed or quoted numbers before sharing with investors.")
-      )));
+function renderPrice(){
+ document.getElementById('t-price').innerHTML=`
+ <h2>Pricing architecture — every cell is live</h2>
+ <p class="note">Prices in ₹ per unit per year; adoption rates in % of the relevant base. Set a price to 0 to switch a revenue line off entirely and see what the business looks like without it.</p>
+ <div class="tw"><table>${hdr('Pricing lever')}<tbody>
+ ${sec('SEREN — students')}
+ ${erow('Base licence per student (₹)','sPrice',{step:50})}
+ ${erow('Resume download per student (₹)','rPrice',{step:10})}
+ ${erow('Resume adoption (% of students)','rAdopt',{step:5})}
+ ${sec('PRISM — faculty')}
+ ${erow('Base licence per faculty (₹)','fPrice',{step:50})}
+ ${erow('Certification per faculty (₹)','cPrice',{step:100})}
+ ${erow('Certification adoption (% of faculty)','cAdopt',{step:5})}
+ ${sec('VISTA — accreditation documents')}
+ ${erow('Price per downloadable document (₹)','vPrice',{step:500})}
+ ${erow('Institutes downloading (% of base)','vShare',{step:5})}
+ ${erow('Average documents per institute','vDocs')}
+ ${sec('MERIDIAN — careers')}
+ ${erow('Per student per year (₹)','mPrice',{step:50})}
+ ${erow('Adoption (% of active students)','mAdopt',{step:5})}
+ ${erow('Employer partners (number)','ePart')}
+ ${erow('Employer partnership annual fee (₹)','eFee',{step:25000})}
+ </tbody></table></div>
+ <h2>Effective realised price per student</h2>
+ <div class="tw"><table>${hdr('Realised pricing')}<tbody>
+ ${row('Blended realised ₹/student (all SEREN + MERIDIAN)',R.arpuS,{fmt:rs,cls:'rev'})}
+ ${row('Blended realised ₹/faculty (all PRISM)',R.arpuF,{fmt:rs,cls:'rev'})}
+ ${row('Discount leakage vs list price (₹ L)',R.seren.map((v,i)=>R.serenStd[i]+R.serenDis[i]-R.seren[i]+(R.stuDis[i]*S.sPrice[i]*S.bulkDisc/100/L)),{fmt:v=>nf(v),cls:'cost'})}
+ </tbody></table></div>`;
 }
-ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+
+function renderRev(){
+ document.getElementById('t-rev').innerHTML=`
+ <h2>Revenue model (₹ Lakhs, pre-tax)</h2>
+ <p class="note">Everything here is calculated — nothing is typed. Discounted licence revenue correctly applies the bulk discount to each year's own price (the static v2.0 sheet froze it at the Year-1 rate; see the Model Audit tab).</p>
+ <div class="tw"><table>${hdr('Revenue line')}<tbody>
+ ${sec('A · SEREN student licences')}
+ ${row('Standard licence revenue',R.serenStd,{cls:'rev'})}
+ ${row('Bulk-discounted licence revenue',R.serenDis,{cls:'rev'})}
+ ${row('Pilot / early-bird discount',R.pilotS.map(v=>-v),{cls:'cost'})}
+ ${row('SEREN student licence revenue (net)',R.seren,{cls:'tot'})}
+ ${sec('B · SEREN resume downloads')}
+ ${row('Resume revenue',R.resume,{cls:'rev'})}
+ ${sec('C · PRISM faculty licences')}
+ ${row('Standard licence revenue',R.prismStd,{cls:'rev'})}
+ ${row('Bulk-discounted licence revenue',R.prismDis,{cls:'rev'})}
+ ${row('Pilot / early-bird discount',R.pilotF.map(v=>-v),{cls:'cost'})}
+ ${row('PRISM faculty licence revenue (net)',R.prism,{cls:'tot'})}
+ ${sec('D · PRISM certification')}
+ ${row('Certification revenue',R.cert,{cls:'rev'})}
+ ${sec('E · VISTA documents')}
+ ${row('VISTA document revenue',R.vista,{cls:'rev'})}
+ ${sec('F · MERIDIAN')}
+ ${row('MERIDIAN student revenue',R.mer,{cls:'rev'})}
+ ${row('Employer partnership revenue',R.emp,{cls:'rev'})}
+ ${sec('Total')}
+ ${row('TOTAL REVENUE (₹ Lakhs)',R.rev,{cls:'tot'})}
+ ${row('TOTAL REVENUE (₹ Crores)',R.rev.map(v=>v/100),{cls:'tot'})}
+ ${row('YoY growth',R.rev.map((v,i)=>i?(v/R.rev[i-1]-1)*100:null),{fmt:v=>v==null?'—':pc(v),cls:'pro'})}
+ </tbody></table></div>
+ <h2>Revenue mix (% of total)</h2>
+ <div class="tw"><table>${hdr('Share of revenue')}<tbody>
+ ${[['SEREN licences',R.seren],['SEREN resumes',R.resume],['PRISM licences',R.prism],['PRISM certification',R.cert],
+    ['VISTA documents',R.vista],['MERIDIAN students',R.mer],['Employers',R.emp]]
+   .map(([n,d])=>row(n,d.map((v,i)=>R.rev[i]?v/R.rev[i]*100:0),{fmt:v=>pc(v)})).join('')}
+ </tbody></table></div>`;
+}
+
+function renderCost(){
+ const om=S.opexMult/100*SCEN_DEF[SCEN].cost;
+ document.getElementById('t-cost').innerHTML=`
+ <h2>Cost base (₹ Lakhs)</h2>
+ <p class="note">Salary is editable at department level and scaled by the sidebar salary slider. Cloud cost is <b>volume-coupled</b> — it is students × ₹${S.cloudPerStudent}/student/year, so it grows automatically when you grow the business instead of staying a typed-in guess.</p>
+ <div class="tw"><table>${hdr('Cost line')}<tbody>
+ ${sec('Salary by function (editable, ₹ L)')}
+ ${erow('Leadership &amp; strategy','salLead')}
+ ${erow('Technology','salTech')}
+ ${erow('Psychometrics &amp; research','salPsy')}
+ ${erow('Content &amp; learning design','salCont')}
+ ${erow('Sales &amp; marketing','salSales')}
+ ${erow('Operations &amp; finance','salOps')}
+ ${erow('HEI advisory &amp; accreditation','salHEI')}
+ ${erow('Total headcount (FTE)','head')}
+ ${row('TOTAL SALARY COST (@'+S.salMult+'% of plan)',R.salTot,{cls:'tot'})}
+ ${row('Average cost per FTE (₹ L)',R.salTot.map((v,i)=>S.head[i]?v/S.head[i]:0),{fmt:v=>nf(v,2)})}
+ ${sec('Non-salary operating expenses')}
+ ${row('Cloud &amp; infra (students × ₹'+S.cloudPerStudent+')',R.cloud,{cls:'cost'})}
+ ${erow('Other technology (licences, APIs, security)','opTechFix')}
+ ${erow('Product &amp; R&amp;D (validation, IP, UX)','opRnd')}
+ ${erow('Sales &amp; marketing (non-salary)','opMkt')}
+ ${erow('Office &amp; administration','opOffice')}
+ ${erow('Legal &amp; compliance','opLegal')}
+ ${row('Contingency @'+S.contingency+'%',R.cont,{cls:'cost'})}
+ ${row('TOTAL NON-SALARY OPEX',R.nonSal,{cls:'tot'})}
+ ${sec('Total')}
+ ${row('TOTAL OPERATING COST',R.cost,{cls:'tot'})}
+ ${row('Cost as % of revenue',R.cost.map((v,i)=>R.rev[i]?v/R.rev[i]*100:0),{fmt:v=>pc(v),cls:'pro'})}
+ ${row('Cost per student served (₹)',R.cost.map((v,i)=>R.stu[i]?v*L/R.stu[i]:0),{fmt:rs})}
+ </tbody></table></div>
+ <div class="cards"><div class="card"><h4>Cost stack (₹ Lakhs)</h4>
+ ${chartStacked(YL,[{n:'Salary',c:'#D9A441',data:R.salTot},{n:'Non-salary opex',c:'#E8C27A',data:R.nonSal}],v=>nf(v,0))}</div>
+ <div class="card"><h4>Operating leverage: cost as % of revenue</h4>
+ ${chartLine(YL,[{n:'Cost / revenue',c:'#D9A441',data:R.cost.map((v,i)=>R.rev[i]?v/R.rev[i]*100:300)}],v=>nf(v,0)+'%')}</div></div>`;
+}
+
+function renderPL(){
+ const net=R.rev.map((v,i)=>v-R.cost[i]-R.taxv[i]-S.capex[i]-S.oneTime[i]+S.grant[i]);
+ document.getElementById('t-pl').innerHTML=`
+ <h2>Profit &amp; loss (₹ Lakhs)</h2>
+ <div class="tw"><table>${hdr('P&L line')}<tbody>
+ ${row('Total revenue',R.rev,{cls:'rev'})}
+ ${row('Total salary cost',R.salTot.map(v=>-v),{cls:'cost'})}
+ ${row('Total non-salary opex',R.nonSal.map(v=>-v),{cls:'cost'})}
+ ${row('EBITDA',R.ebitda,{cls:'pro'})}
+ ${row('EBITDA margin',R.ebitdaM,{fmt:v=>pc(v),cls:'pro'})}
+ ${row('Depreciation &amp; amortisation',R.da.map(v=>-v),{cls:'cost'})}
+ ${row('EBIT',R.ebit,{cls:'pro'})}
+ ${row('Tax @'+S.tax+'%'+(S.carryFwd?' (losses carried forward)':''),R.taxv.map(v=>-v),{cls:'cost'})}
+ ${row('PAT — profit after tax',R.pat,{cls:'tot'})}
+ ${row('PAT (₹ Crores)',R.pat.map(v=>v/100),{cls:'tot'})}
+ </tbody></table></div>
+ <h2>Cash flow (₹ Lakhs)</h2>
+ <div class="tw"><table>${hdr('Cash line')}<tbody>
+ ${row('Opening cash balance',R.open,{cls:'pro'})}
+ ${row('(+) Revenue collected',R.rev,{cls:'rev'})}
+ ${row('(−) Operating costs',R.cost.map(v=>-v),{cls:'cost'})}
+ ${row('(−) Tax paid',R.taxv.map(v=>-v),{cls:'cost'})}
+ ${erow('(−) Capex','capex')}
+ ${erow('(−) One-time costs','oneTime')}
+ ${erow('(+) Grant received (ELEVATE tranches)','grant')}
+ ${row('Net cash movement',net,{cls:'pro'})}
+ ${row('CLOSING CASH BALANCE',R.close,{cls:'tot'})}
+ </tbody></table></div>
+ <div class="ok"><b>Break-even:</b> monthly revenue first covers monthly cost at <b>${R.beOp?mon(R.beOp):'— not within 5 years'}</b>; cumulative operating cash turns positive at <b>${R.beCash?mon(R.beCash):'— not within 5 years'}</b>. Lowest cash point is <b>₹${nf(R.minBal)} L at month ${R.minM}</b>.</div>
+ <div class="cards"><div class="card"><h4>Monthly revenue vs monthly cost (₹ Lakhs)</h4>
+ ${chartLine(R.months.map(m=>'M'+m.i),[{n:'Monthly revenue',c:'#2FA37A',data:R.months.map(m=>m.rev)},
+   {n:'Monthly cost',c:'#D9A441',data:R.months.map(m=>m.cost)}],v=>nf(v,0))}</div>
+ <div class="card"><h4>Profit waterfall by year (₹ Lakhs)</h4>
+ ${chartLine(YL,[{n:'Revenue',c:'#2FA37A',data:R.rev},{n:'EBITDA',c:'#5BA8FF',data:R.ebitda},
+   {n:'PAT',c:'#39D3A0',data:R.pat}],v=>nf(v,0),1)}</div></div>`;
+}
+
+function renderUE(){
+ document.getElementById('t-ue').innerHTML=`
+ <h2>Unit economics</h2>
+ <p class="note">LTV is computed as ACV × gross margin × the 5-year retention sum at ${S.churn}% churn — margin-adjusted, which is the convention investors will apply. The static deck used a gross-revenue LTV, which flatters the ratio.</p>
+ <div class="tw"><table>${hdr('Unit metric')}<tbody>
+ ${sec('Per student — SEREN + MERIDIAN')}
+ ${row('ARPU per student',R.arpuS,{fmt:rs,cls:'rev'})}
+ ${erow('COGS per student (₹)','cogsS',{step:10})}
+ ${row('Gross margin per student',R.arpuS.map((v,i)=>v-S.cogsS[i]),{fmt:rs,cls:'pro'})}
+ ${row('Gross margin %',R.gmS,{fmt:v=>pc(v),cls:'pro'})}
+ ${sec('Per faculty — PRISM')}
+ ${row('ARPU per faculty',R.arpuF,{fmt:rs,cls:'rev'})}
+ ${erow('COGS per faculty (₹)','cogsF',{step:25})}
+ ${row('Gross margin per faculty',R.arpuF.map((v,i)=>v-S.cogsF[i]),{fmt:rs,cls:'pro'})}
+ ${row('Gross margin %',R.gmF,{fmt:v=>pc(v),cls:'pro'})}
+ ${sec('Per institute')}
+ ${row('Annual contract value (ACV)',R.acv,{fmt:rs,cls:'rev'})}
+ ${row('CAC per new institute',R.cac,{fmt:rs,cls:'cost'})}
+ ${row('Blended gross margin',R.gmBlend.map(v=>v*100),{fmt:v=>pc(v),cls:'pro'})}
+ ${row('Gross-margin payback (months)',R.pay,{fmt:v=>nf(v,1),cls:'pro'})}
+ ${row('LTV (5-year, margin-adjusted)',R.ltv,{fmt:rs,cls:'pro'})}
+ ${row('LTV : CAC',R.lcac,{fmt:v=>nf(v,2)+':1',cls:'tot'})}
+ ${row('Net revenue retention (computed)',[null].concat(R.nrr.slice(1)),{fmt:v=>v==null?'—':pc(v),cls:'pro'})}
+ </tbody></table></div>
+ <div class="cards"><div class="card"><h4>LTV vs CAC per institute (₹)</h4>
+ ${chartStacked(YL,[{n:'CAC',c:'#D9A441',data:R.cac},{n:'LTV above CAC',c:'#2FA37A',data:R.ltv.map((v,i)=>Math.max(0,v-R.cac[i]))}],v=>ni(v))}</div>
+ <div class="card"><h4>Payback period (months) — lower is better</h4>
+ ${chartLine(YL,[{n:'Payback months',c:'#5BA8FF',data:R.pay},{n:'12-month benchmark',c:'#7d8da8',data:[12,12,12,12,12]}],v=>nf(v,0))}</div></div>`;
+}
+
+function renderVal(){
+ const vals=R.rev.map(v=>v*S.mult/100);
+ const seedPost=S.seedPre+S.seed, aPost=S.aPre+S.aAmt, bPost=S.bPre+S.bAmt;
+ const dSeed=S.seed/seedPost*100, dA=S.aAmt/aPost*100, dB=S.bAmt/bPost*100;
+ let own=100; own-=S.esop; own*= (1-dSeed/100); const afterSeed=own;
+ own*=(1-dA/100); const afterA=own; own*=(1-dB/100); const afterB=own;
+ const exitLo=R.rev[4]*S.exitMultLo/100, exitHi=R.rev[4]*S.exitMultHi/100;
+ document.getElementById('t-val').innerHTML=`
+ <h2>Implied valuation by year</h2>
+ <p class="note">Revenue multiples are a market convention, not a promise — the multiple you can actually defend depends on net retention, gross margin and growth durability. Adjust the multiple slider and watch the whole ladder move.</p>
+ <div class="tw"><table>${hdr('Valuation')}<tbody>
+ ${row('Revenue / ARR proxy (₹ Cr)',R.rev.map(v=>v/100),{cls:'rev'})}
+ ${row('Implied value @ '+S.mult+'x (₹ Cr)',vals,{cls:'tot'})}
+ ${row('Implied value @ 8x (₹ Cr)',R.rev.map(v=>v*8/100),{})}
+ ${row('Implied value @ 11.5x EdTech SaaS (₹ Cr)',R.rev.map(v=>v*11.5/100),{})}
+ ${row('Implied value @ 9.2x HiEd platform (₹ Cr)',R.rev.map(v=>v*9.2/100),{})}
+ ${row('EBITDA (₹ Cr)',R.ebitda.map(v=>v/100),{cls:'pro'})}
+ ${row('Implied value @ 15x EBITDA (₹ Cr)',R.ebitda.map(v=>v*15/100),{cls:'pro'})}
+ </tbody></table></div>
+ <h2>Funding ladder &amp; dilution</h2>
+ <div class="tw"><table><thead><tr><th>Round</th><th>Raise (₹ Cr)</th><th>Pre-money (₹ Cr)</th><th>Post-money (₹ Cr)</th><th>Dilution</th><th>Founder stake after</th></tr></thead><tbody>
+ <tr><td>ESOP pool carve-out</td><td>—</td><td>—</td><td>—</td><td class="neg">${pc(S.esop)}</td><td>${pc(100-S.esop)}</td></tr>
+ <tr class="rev"><td>Seed (angel / bootstrapped)</td><td>${nf(S.seed/100)}</td><td>${nf(S.seedPre/100)}</td><td>${nf(seedPost/100)}</td><td class="neg">${pc(dSeed)}</td><td>${pc(afterSeed)}</td></tr>
+ <tr class="rev"><td>Series A</td><td>${nf(S.aAmt/100)}</td><td>${nf(S.aPre/100)}</td><td>${nf(aPost/100)}</td><td class="neg">${pc(dA)}</td><td>${pc(afterA)}</td></tr>
+ <tr class="rev"><td>Series B</td><td>${nf(S.bAmt/100)}</td><td>${nf(S.bPre/100)}</td><td>${nf(bPost/100)}</td><td class="neg">${pc(dB)}</td><td>${pc(afterB)}</td></tr>
+ <tr class="tot"><td>Exit range FY2031-32 (${S.exitMultLo}–${S.exitMultHi}x Y5 revenue)</td><td colspan="3">₹${nf(exitLo,0)} – ₹${nf(exitHi,0)} Cr</td><td>—</td><td>Founder value ₹${nf(exitLo*afterB/100,0)} – ₹${nf(exitHi*afterB/100,0)} Cr</td></tr>
+ </tbody></table></div>
+ <div class="cards"><div class="card"><h4>Implied enterprise value across multiples (₹ Cr)</h4>
+ ${chartLine(YL,[{n:S.mult+'x',c:'#39D3A0',data:vals},{n:'11.5x',c:'#5BA8FF',data:R.rev.map(v=>v*11.5/100)},
+  {n:'8x',c:'#D9A441',data:R.rev.map(v=>v*8/100)}],v=>nf(v,0))}</div>
+ <div class="card"><h4>Capital need vs cash generated (₹ Lakhs)</h4>
+ ${chartLine(YL,[{n:'Closing cash',c:'#39D3A0',data:R.close,area:1},{n:'Cumulative PAT',c:'#5BA8FF',data:R.pat.map((_,i)=>R.pat.slice(0,i+1).reduce((a,b)=>a+b,0))}],v=>nf(v,0),1)}</div></div>
+ <div class="warn"><b>Reality check on the raise.</b> Your lowest cash point in this scenario is ₹${nf(R.minBal)} L. ${R.minBal>0?'On these numbers the Series A is a growth choice, not a survival one — which is the strongest position to negotiate from.':'You need at least ₹'+nf(-R.minBal)+' L of additional capital before that month, plus a buffer of 6–9 months of operating cost.'}</div>`;
+}
+
+function renderScen(){
+ const rs3={};Object.keys(SCEN_DEF).forEach(k=>rs3[k]=compute(S,SCEN_DEF[k]));
+ const nm={cons:'Conservative',base:'Base',aggr:'Aggressive'};
+ const blk=k=>`${sec(nm[k]+' scenario')}
+  ${row('Active institutes',rs3[k].inst,{fmt:v=>nf(v,0)})}
+  ${row('Total students',rs3[k].stu,{fmt:ni})}
+  ${row('Revenue (₹ Cr)',rs3[k].rev.map(v=>v/100),{cls:'rev'})}
+  ${row('EBITDA (₹ Cr)',rs3[k].ebitda.map(v=>v/100),{cls:'pro'})}
+  ${row('EBITDA margin',rs3[k].ebitdaM,{fmt:v=>pc(v)})}
+  ${row('Closing cash (₹ L)',rs3[k].close,{cls:'tot'})}`;
+ document.getElementById('t-scen').innerHTML=`
+ <h2>Three scenarios from one engine</h2>
+ <p class="note">Multipliers applied to your current inputs — Conservative ×0.70 institutes / ×0.90 students / ×0.95 price / ×0.80 adoption; Aggressive ×1.50 / ×1.10 / ×1.00 / ×1.15 with costs up 15%. Edit any driver and all three move together, so the scenarios can never drift out of sync the way hard-typed ones do.</p>
+ <div class="tw"><table>${hdr('Scenario')}<tbody>${blk('cons')}${blk('base')}${blk('aggr')}</tbody></table></div>
+ <div class="tw"><table><thead><tr><th>Headline comparison (Year 5)</th><th>Conservative</th><th>Base</th><th>Aggressive</th></tr></thead><tbody>
+ ${['Revenue (₹ Cr)|rev|100','EBITDA (₹ Cr)|ebitda|100'].map(r=>{const [n,k,d]=r.split('|');
+   return '<tr class="rev"><td>'+n+'</td>'+['cons','base','aggr'].map(s=>'<td>'+nf(rs3[s][k][4]/d)+'</td>').join('')+'</tr>';}).join('')}
+ <tr class="pro"><td>EBITDA margin</td>${['cons','base','aggr'].map(s=>'<td>'+pc(rs3[s].ebitdaM[4])+'</td>').join('')}</tr>
+ <tr><td>Revenue CAGR</td>${['cons','base','aggr'].map(s=>'<td>'+pc(rs3[s].cagr)+'</td>').join('')}</tr>
+ <tr><td>Operating break-even</td>${['cons','base','aggr'].map(s=>'<td>'+(rs3[s].beOp?'M'+rs3[s].beOp:'—')+'</td>').join('')}</tr>
+ <tr><td>Lowest cash (₹ L)</td>${['cons','base','aggr'].map(s=>'<td class="'+(rs3[s].minBal<0?'neg':'pos')+'">'+nf(rs3[s].minBal)+'</td>').join('')}</tr>
+ <tr class="tot"><td>Extra capital needed (₹ L)</td>${['cons','base','aggr'].map(s=>'<td class="'+(rs3[s].peakNeed>0?'neg':'pos')+'">'+(rs3[s].peakNeed>0?nf(rs3[s].peakNeed):'None')+'</td>').join('')}</tr>
+ <tr><td>LTV : CAC (Y5)</td>${['cons','base','aggr'].map(s=>'<td>'+nf(rs3[s].lcac[4],1)+':1</td>').join('')}</tr>
+ </tbody></table></div>
+ <div class="card" style="margin-top:14px"><h4>Revenue across scenarios (₹ Cr)</h4>
+ ${chartLine(YL,[{n:'Conservative',c:'#D9A441',data:rs3.cons.rev.map(v=>v/100)},
+  {n:'Base',c:'#39D3A0',data:rs3.base.rev.map(v=>v/100),area:1},
+  {n:'Aggressive',c:'#5BA8FF',data:rs3.aggr.rev.map(v=>v/100)}],v=>nf(v,0))}</div>`;
+}
+
+function renderSens(){
+ // heatmap: SEREN price multiplier x new-institute multiplier -> chosen metric
+ const metric=window.__hmMetric||'rev5';
+ const pm=[.6,.8,.9,1,1.1,1.25,1.5], im=[.5,.75,1,1.25,1.5,2];
+ const grid=pm.map(p=>im.map(i=>{
+   const r=compute(S,{inst:SCEN_DEF[SCEN].inst*i,spi:SCEN_DEF[SCEN].spi,price:SCEN_DEF[SCEN].price*p,
+     adopt:SCEN_DEF[SCEN].adopt,cost:SCEN_DEF[SCEN].cost});
+   return metric==='rev5'?r.rev[4]/100:metric==='ebitda5'?r.ebitda[4]/100:metric==='be'?(r.beOp||99):r.minBal;
+ }));
+ const flat=grid.flat(), lo=Math.min(...flat), hi=Math.max(...flat);
+ const inv=(metric==='be');
+ const fmtv=v=>metric==='be'?(v>=99?'—':'M'+Math.round(v)):nf(v,metric==='minBal'?0:1);
+ let hm=`<div class="tw"><table class="hm"><thead><tr><th>SEREN price ↓ / new institutes →</th>`+
+   im.map(i=>`<th>${Math.round(i*100)}%</th>`).join('')+`</tr></thead><tbody>`;
+ pm.forEach((p,r)=>{hm+=`<tr><td>${Math.round(p*100)}% (₹${Math.round(S.sPrice[0]*p)} Y1)</td>`+
+   grid[r].map(v=>{let t=(v-lo)/((hi-lo)||1); if(inv)t=1-t;
+     return `<td style="background:${heatColor(t)}">${fmtv(v)}</td>`;}).join('')+`</tr>`;});
+ hm+='</tbody></table></div>';
+
+ // tornado on Y5 EBITDA
+ const base=compute(S,SCEN_DEF[SCEN]).ebitda[4];
+ const drivers=[
+  ['New institutes signed',s=>s.newInst=s.newInst.map(v=>v*1.2),s=>s.newInst=s.newInst.map(v=>v*.8)],
+  ['Students per institute',s=>s.spi=s.spi.map(v=>v*1.2),s=>s.spi=s.spi.map(v=>v*.8)],
+  ['SEREN price',s=>s.sPrice=s.sPrice.map(v=>v*1.2),s=>s.sPrice=s.sPrice.map(v=>v*.8)],
+  ['MERIDIAN adoption',s=>s.mAdopt=s.mAdopt.map(v=>v*1.2),s=>s.mAdopt=s.mAdopt.map(v=>v*.8)],
+  ['MERIDIAN price',s=>s.mPrice=s.mPrice.map(v=>v*1.2),s=>s.mPrice=s.mPrice.map(v=>v*.8)],
+  ['Institute churn rate',s=>s.churn=s.churn*1.5,s=>s.churn=s.churn*.5],
+  ['Salary level',s=>s.salMult=s.salMult*1.2,s=>s.salMult=s.salMult*.8],
+  ['Cloud cost per student',s=>s.cloudPerStudent*=2,s=>s.cloudPerStudent*=.5],
+  ['PRISM certification adoption',s=>s.cAdopt=s.cAdopt.map(v=>v*1.2),s=>s.cAdopt=s.cAdopt.map(v=>v*.8)],
+  ['Bulk discount depth',s=>s.bulkDisc=s.bulkDisc*1.5,s=>s.bulkDisc=s.bulkDisc*.5]
+ ].map(([n,up,dn])=>{
+   const a=JSON.parse(JSON.stringify(S));up(a);
+   const b=JSON.parse(JSON.stringify(S));dn(b);
+   const hiV=compute(a,SCEN_DEF[SCEN]).ebitda[4], loV=compute(b,SCEN_DEF[SCEN]).ebitda[4];
+   return {n,hi:hiV-base,lo:loV-base,span:Math.abs(hiV-loV)};
+ }).sort((x,y)=>y.span-x.span);
+ const mx=Math.max(...drivers.map(d=>Math.max(Math.abs(d.hi),Math.abs(d.lo))))||1;
+ const W=820,rh=28,H=drivers.length*rh+26,mid=W*.56;
+ let tg='';
+ drivers.forEach((d,i)=>{const y=i*rh+9;
+  const wH=Math.abs(d.hi)/mx*(W-mid-16), wL=Math.abs(d.lo)/mx*(mid-250);
+  tg+=`<text x="4" y="${y+15}" fill="#90A4C4" font-size="11.5">${d.n}</text>`;
+  tg+=`<rect x="${d.lo<0?mid-wL:mid}" y="${y+3}" width="${wL}" height="15" fill="${d.lo<0?'#FF6B6B':'#2FA37A'}" opacity=".85"><title>−20%: ₹${nf(d.lo)} L</title></rect>`;
+  tg+=`<rect x="${d.hi<0?mid-wH:mid}" y="${y+3}" width="${wH}" height="15" fill="${d.hi<0?'#FF6B6B':'#2FA37A'}" opacity=".85"><title>+20%: ₹${nf(d.hi)} L</title></rect>`;
+  tg+=`<text x="${W-6}" y="${y+15}" fill="#E8EEF7" font-size="11" text-anchor="end">±₹${nf(d.span/2,0)} L</text>`;});
+ tg+=`<line x1="${mid}" y1="0" x2="${mid}" y2="${H-20}" stroke="#90A4C4" stroke-dasharray="4 3"/>`;
+
+ document.getElementById('t-sens').innerHTML=`
+ <h2>Two-way sensitivity</h2>
+ <p class="note">Price and growth are the two levers an institute actually negotiates with you. Green is better; the grid recomputes the full 5-year model ${pm.length*im.length} times every time you touch an input.</p>
+ <div class="row" style="margin-bottom:10px">
+  ${[['rev5','Year-5 revenue (₹ Cr)'],['ebitda5','Year-5 EBITDA (₹ Cr)'],['be','Break-even month'],['minBal','Lowest cash (₹ L)']]
+   .map(([k,n])=>`<button class="btn ${metric===k?'on':''}" onclick="window.__hmMetric='${k}';render()">${n}</button>`).join('')}
+ </div>
+ ${hm}
+ <h2>What actually moves Year-5 EBITDA (±20% on each driver)</h2>
+ <p class="note">The longest bar is the assumption to spend your diligence on. If a driver barely moves the bar, stop arguing about it in board meetings.</p>
+ <div class="card"><svg viewBox="0 0 ${W} ${H}">${tg}</svg></div>`;
+}
+
+function renderRoad(){
+ const RM=[
+ ['SEREN — Core Canvas (10 Drawers + Onboarding)','LIVE Q1','LIVE','LIVE','LIVE','LIVE'],
+ ['SEREN — 187-Item Psychometric Intake Engine','LIVE Q1','LIVE','LIVE','LIVE','LIVE'],
+ ['SEREN — Archetype Classification (12 Archetypes)','LIVE Q1','LIVE','LIVE','LIVE','LIVE'],
+ ['SEREN — Daily Capsule','LIVE Q2-Q3','LIVE','LIVE','LIVE','LIVE'],
+ ['SEREN — Personalised Resume (Word)','LIVE Q3','LIVE','LIVE','LIVE','LIVE'],
+ ['SEREN — Personalised Resume (AV/Video)','LIVE Q3-Q4','LIVE','LIVE','LIVE','LIVE'],
+ ['SEREN — Growth Passport','LIVE Q2','LIVE','LIVE','LIVE','LIVE'],
+ ['PRISM — Mentor Onboarding + SQI Scoring','LIVE Q1','LIVE','LIVE','LIVE','LIVE'],
+ ['PRISM — DES (Distress Entropy Score)','LIVE Q1','LIVE','LIVE','LIVE','LIVE'],
+ ['PRISM — ACI (Archetype Compatibility Index)','LIVE Q1','LIVE','LIVE','LIVE','LIVE'],
+ ['PRISM — Certified Training Module (L1)','LIVE Q2-Q3','LIVE','LIVE','LIVE','LIVE'],
+ ['PRISM — Reference Library','LIVE Q3-Q4','LIVE','LIVE','LIVE','LIVE'],
+ ['PRISM — WSJT Weekly Tasks','LIVE Q2','LIVE','LIVE','LIVE','LIVE'],
+ ['VISTA — Real-Time Cohort Dashboard (Free)','LIVE Q4','LIVE','LIVE','LIVE','LIVE'],
+ ['VISTA — NAAC Documents','LIVE Q4','LIVE','LIVE','LIVE','LIVE'],
+ ['VISTA — NBA Documents','—','LIVE Q1','LIVE','LIVE','LIVE'],
+ ['VISTA — NIRF Documents','—','LIVE Q1','LIVE','LIVE','LIVE'],
+ ['VISTA — AQAR Auto-Population (90%)','—','LIVE Q2','LIVE','LIVE','LIVE'],
+ ['MERIDIAN — Career Readiness + Employer Matching','—','LIVE Q2-Q3','LIVE','LIVE','LIVE'],
+ ['MERIDIAN — Alumni Network Intelligence','—','LIVE Q3-Q4','LIVE','LIVE','LIVE'],
+ ['MERIDIAN — Know.Grow.Prove.Connect.Belong','—','LIVE Q4','LIVE','LIVE','LIVE']];
+ const pill=v=>v==='—'?'<span class="pill p-no">not yet</span>':
+   (v==='LIVE'?'<span class="pill p-live">LIVE</span>':'<span class="pill p-dash">'+v+'</span>');
+ const RISK=[
+ ['R-01','Institutes sign but student adoption &lt;50%',3,3,'WhatsApp nudge engine; coordinator incentive; monthly engagement report'],
+ ['R-02','Faculty resistance to PRISM mentor tools',2,3,'Certified training; WSJT gamification; self-paced reference library'],
+ ['R-03','NAAC regulatory change erodes VISTA value',1,3,'Multi-standard design (NAAC+NBA+NIRF+NEP)'],
+ ['R-04','Key tech hire leaves early',2,3,'Intern pipeline; ESOP 0.25–1% over 4 years; documented architecture'],
+ ['R-05','Competitor launches similar product',2,2,'Patent moat; longitudinal data advantage compounds each semester'],
+ ['R-06','Student data privacy breach',1,4,'DPDP 2023 by design; ethical firewall; mentors never see raw content'],
+ ['R-07','ELEVATE grant tranche delayed',2,2,'Parallel self-funded progress; 6-week milestone buffer'],
+ ['R-08','Series A not raised on timeline',1,3,'Conservative case is cash-positive before the raise — test it in Scenarios'],
+ ['R-09','Psychometric validation fails peer review (α&lt;0.80)',1,3,'External peer review budgeted; iterative instrument refinement'],
+ ['R-10','Churn exceeds 10%',2,3,'Quarterly NPS; client success exec; accreditation-document stickiness'],
+ ['R-11','Pricing pressure from institutes',3,2,'Free VISTA dashboard as hook; modular pricing; 20% discount cap'],
+ ['R-12','DPDP regulation evolves',1,2,'Legal retainer monitoring; adaptable architecture'],
+ ['R-13','Resume / AV quality below expectation',2,2,'Resume expert + animator; 200-student beta before rollout'],
+ ['R-14','Slow 6–12 month institutional sales cycle',3,2,'30+ parallel pipeline; accreditation urgency; pilot-first entry']];
+ const rc=s=>s>=9?'#FF6B6B':s>=6?'#D9A441':s>=4?'#8FC6FF':'#39D3A0';
+ document.getElementById('t-road').innerHTML=`
+ <h2>Product deployment roadmap</h2>
+ <div class="tw"><table>${hdr('Module')}<tbody>
+ ${RM.map(r=>'<tr><td>'+r[0]+'</td>'+r.slice(1).map(v=>'<td style="text-align:center">'+pill(v)+'</td>').join('')+'</tr>').join('')}
+ </tbody></table></div>
+ <h2>Risk register (probability × impact)</h2>
+ <p class="note">Score = probability (1–3) × impact (1–4). Sorted highest first — the top three are where your pilot design should be doing its work.</p>
+ <div class="tw"><table><thead><tr><th>ID</th><th style="text-align:left">Risk</th><th>P</th><th>I</th><th>Score</th><th style="text-align:left;min-width:320px">Mitigation</th></tr></thead><tbody>
+ ${RISK.map(r=>({id:r[0],d:r[1],p:r[2],i:r[3],m:r[4],s:r[2]*r[3]})).sort((a,b)=>b.s-a.s).map(r=>
+  `<tr><td style="min-width:0">${r.id}</td><td style="text-align:left">${r.d}</td><td>${r.p}</td><td>${r.i}</td>
+   <td style="background:${rc(r.s)};color:#0A1628;font-weight:700">${r.s}</td><td style="text-align:left">${r.m}</td></tr>`).join('')}
+ </tbody></table></div>`;
+}
+
+function renderAudit(){
+ const deck={rev:[179.28,642.93,1889.50,4136.69,7700.08],seren:[172.80,556.80,1281.28,2580.48,4617.60],
+  vista:[0,21.75,56.00,144.00,266.40],prism:[6.48,20.88,47.30,93.70,165.36],
+  ebitda:[-29.42,283.21,1379.95,3514.44,6932.03],pat:[-30.27,211.25,1032.98,2632.76,5194.30]};
+ const cmp=(lab,live,st)=>`<tr><td>${lab}</td>`+live.map((v,i)=>{
+   const d=v-st[i], p=st[i]?d/Math.abs(st[i])*100:0;
+   const c=Math.abs(p)<1?'':(d>0?'pos':'neg');
+   return `<td class="${c}">${nf(v)}<br><span style="font-size:10.5px;color:#90A4C4">deck ${nf(st[i])} · ${d>=0?'+':''}${nf(p,1)}%</span></td>`;}).join('')+'</tr>';
+ document.getElementById('t-audit').innerHTML=`
+ <h2>Live model vs the static v2.0 deck</h2>
+ <div class="warn">Rebuilding the sheets as formulas surfaced four arithmetic issues in the static v2.0 workbook. None of them break the story, but an investor's analyst will find them in about twenty minutes, so fix them before the deck goes out.</div>
+ <div class="tw"><table>${hdr('Live vs deck (₹ Lakhs)')}<tbody>
+ ${cmp('SEREN student licences (net)',R.seren,deck.seren)}
+ ${cmp('PRISM faculty licences (net)',R.prism,deck.prism)}
+ ${cmp('VISTA document revenue',R.vista,deck.vista)}
+ ${cmp('Total revenue',R.rev,deck.rev)}
+ ${cmp('EBITDA',R.ebitda,deck.ebitda)}
+ ${cmp('PAT',R.pat,deck.pat)}
+ </tbody></table></div>
+ <h2>Issues found</h2>
+ <div class="tw"><table><thead><tr><th style="text-align:left">Issue</th><th style="text-align:left;min-width:380px">What the deck does</th><th style="text-align:left;min-width:300px">What this model does</th></tr></thead><tbody>
+ <tr><td style="text-align:left"><b>1. Frozen discount price</b></td><td style="text-align:left">Discounted SEREN revenue uses ₹800 in every year — the Year-1 rate — even though list price rises to ₹1,300. From FY29-30 onward this <i>understates</i> revenue.</td><td style="text-align:left">Discount is applied to each year's own list price (₹1,100 → ₹880, etc.).</td></tr>
+ <tr><td style="text-align:left"><b>2. VISTA unit mismatch</b></td><td style="text-align:left">Document counts, eligible-institute counts and the revenue row disagree; revenue appears roughly 10× the stated volume × price. FY29-30 shows 112 docs but ₹56.00 L, which implies ₹50,000 per document.</td><td style="text-align:left">Revenue = eligible institutes × docs each × price, computed from the drivers you set.</td></tr>
+ <tr><td style="text-align:left"><b>3. Churn not applied consistently</b></td><td style="text-align:left">Cumulative institutes use 10% churn in some years and a rounded-down figure in others (FY30-31 shows 8 against a 9.6 calculation).</td><td style="text-align:left">Churn applied uniformly to the prior-year base.</td></tr>
+ <tr><td style="text-align:left"><b>4. LTV on gross revenue</b></td><td style="text-align:left">LTV is built from ACV without applying gross margin, inflating LTV:CAC.</td><td style="text-align:left">LTV = ACV × gross margin × retention sum — the convention a VC will use.</td></tr>
+ <tr><td style="text-align:left"><b>5. No loss carry-forward</b></td><td style="text-align:left">Year-1 loss is ignored for tax purposes in later years.</td><td style="text-align:left">Losses carry forward by default (toggle in the sidebar).</td></tr>
+ </tbody></table></div>
+ <div class="ok"><b>Market context sheet is unchanged:</b> AISHE 4.5 Cr enrolled students, 64,756 HEIs, 8,293 NAAC-accredited — but keep TAM honest. At ₹1,000–2,000 per student, a ₹2 lakh crore TAM implies near-total national penetration at full price. A serviceable obtainable market built bottom-up from NAAC-accredited private institutes in three target states is far more credible in a pitch than a top-down figure.</div>`;
+}
+
+/* ============================================================
+   8. EVENTS
+   ============================================================ */
+document.addEventListener('input',e=>{
+ const t=e.target; if(!t.dataset||!t.dataset.k)return;
+ const k=t.dataset.k, v=parseFloat(t.value);
+ const focus={k:k,i:t.dataset.i,sel:t.selectionStart,tag:t.tagName};
+ if(t.dataset.i!==undefined){ if(isNaN(v))return; S[k][+t.dataset.i]=v; }
+ else { if(t.tagName==='SELECT'){S[k]=+t.value;} else {if(isNaN(v))return;S[k]=v;} }
+ render();
+ const sel='[data-k="'+focus.k+'"]'+(focus.i!==undefined?'[data-i="'+focus.i+'"]':'');
+ const el=document.querySelector(sel.replace('[data-i="undefined"]',''));
+ if(el&&el.focus){el.focus();try{el.setSelectionRange(focus.sel,focus.sel);}catch(_){}}
+});
+function resetAll(){S=JSON.parse(JSON.stringify(DEF));buildSidebar();render();}
+function exportCSV(){
+ const L2=[];const p=(a)=>L2.push(a.join(','));
+ p(['IGNIQ live model export','scenario:'+SCEN,new Date().toISOString().slice(0,10)]);p([]);
+ const sets=[['Active institutes',R.inst],['Students',R.stu],['Faculty',R.fac],
+  ['SEREN licences (L)',R.seren],['SEREN resumes (L)',R.resume],['PRISM licences (L)',R.prism],
+  ['PRISM certification (L)',R.cert],['VISTA documents (L)',R.vista],['MERIDIAN students (L)',R.mer],
+  ['Employers (L)',R.emp],['TOTAL REVENUE (L)',R.rev],['Salary cost (L)',R.salTot],
+  ['Non-salary opex (L)',R.nonSal],['TOTAL COST (L)',R.cost],['EBITDA (L)',R.ebitda],
+  ['EBITDA margin %',R.ebitdaM],['PAT (L)',R.pat],['Closing cash (L)',R.close],
+  ['ACV (INR)',R.acv],['CAC (INR)',R.cac],['LTV (INR)',R.ltv],['LTV:CAC',R.lcac],['Payback months',R.pay]];
+ p(['Line'].concat(YL));
+ sets.forEach(([n,d])=>p([n].concat(d.map(v=>(Math.round(v*100)/100)))));
+ const blob=new Blob([L2.map(r=>r.join(',')).join('\n')],{type:'text/csv'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+ a.download='IGNIQ_model_'+SCEN+'.csv';a.click();
+}
+buildSidebar();buildTabs();render();
 </script>
 </body>
 </html>
